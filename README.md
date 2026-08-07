@@ -18,6 +18,7 @@ Features implemented
 - Lives (start with 3) and respawn on hit
 - Brief invincibility after respawn, player flashes while invincible
 - Simple sound effects for collecting stars, taking hits, and game over/restart events
+- Procedurally generated background music and a looping movement sound effect while the player moves
 - End screen offering R (restart) or Q (quit) so you can play nonstop by pressing R
 
 How to run (Windows)

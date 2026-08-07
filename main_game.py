@@ -59,6 +59,59 @@ hit_sound = make_sound(220, 180, 0.7)
 game_over_sound = make_sound(110, 250, 0.7)
 restart_sound = make_sound(660, 120, 0.5)
 
+# Generate a simple looping background melody using sine waves.
+def make_background_music(loop_seconds=2.2, volume=0.18):
+    sample_rate = 44100
+    total_samples = int(sample_rate * loop_seconds)
+    buffer = bytearray()
+    note_pattern = [
+        (261.63, 0.24),
+        (329.63, 0.24),
+        (392.00, 0.24),
+        (523.25, 0.24),
+        (392.00, 0.24),
+        (329.63, 0.24),
+        (261.63, 0.24),
+        (196.00, 0.24),
+    ]
+    for note_freq, note_len in note_pattern:
+        note_samples = int(sample_rate * note_len)
+        for i in range(note_samples):
+            t = i / sample_rate
+            primary = math.sin(2 * math.pi * note_freq * t)
+            bass = 0.35 * math.sin(2 * math.pi * (note_freq * 0.5) * t)
+            # Gentle fade in/out to avoid clicks.
+            fade = min(i / (sample_rate * 0.03), 1.0)
+            fade = min(fade, 1.0 - ((i - (note_samples - int(sample_rate * 0.03))) / (sample_rate * 0.03)) if i > note_samples - int(sample_rate * 0.03) else 1.0)
+            sample = int(32767 * volume * fade * (0.75 * primary + 0.25 * bass))
+            buffer.extend(struct.pack('<h', sample))
+    # Repeat the generated loop so the audio can be played indefinitely.
+    while len(buffer) < total_samples * 2:
+        buffer.extend(buffer)
+    return pygame.mixer.Sound(buffer=bytes(buffer[:total_samples * 2]))
+
+# A looping movement sound that plays while the player is moving.
+def make_movement_sound(volume=0.12):
+    return make_sound(720, 120, volume)
+
+background_music = None
+movement_loop = None
+background_channel = None
+movement_channel = None
+music_enabled = False
+
+try:
+    background_music = make_background_music()
+    movement_loop = make_movement_sound()
+    background_channel = pygame.mixer.Channel(0)
+    movement_channel = pygame.mixer.Channel(1)
+    music_enabled = True
+except pygame.error:
+    music_enabled = False
+
+if music_enabled:
+    background_channel.play(background_music, loops=-1)
+
 # Helper to reset the game state for a fresh try
 def reset_game():
     global score, lives, player, star, enemies, start_ticks, invincible, invincible_end
@@ -109,16 +162,27 @@ while running:
     # turn off invincibility when the timer expires
     if invincible and now > invincible_end:
         invincible = False
+    is_moving = False
     if keys[pygame.K_LEFT] or keys[pygame.K_a]:
         player.x -= player_speed
+        is_moving = True
     if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
         player.x += player_speed
+        is_moving = True
     if keys[pygame.K_UP] or keys[pygame.K_w]:
         player.y -= player_speed
+        is_moving = True
     if keys[pygame.K_DOWN] or keys[pygame.K_s]:
         player.y += player_speed
+        is_moving = True
 
     player.clamp_ip(pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT))
+
+    if music_enabled:
+        if is_moving and not movement_channel.get_busy():
+            movement_channel.play(movement_loop, loops=-1)
+        elif not is_moving and movement_channel.get_busy():
+            movement_channel.stop()
 
     for enemy in enemies:
         enemy['rect'].x += enemy['speed'] * enemy['dir']
