@@ -67,6 +67,10 @@ class AudioManager:
             self.movement_loop = self._make_movement_sound()
             self.background_channel = pygame.mixer.Channel(0)
             self.movement_channel = pygame.mixer.Channel(1)
+            # track mute state and default volumes
+            self.muted = False
+            self._background_vol = 1.0
+            self._movement_vol = 1.0
             self.music_enabled = True
         except pygame.error:
             self.music_enabled = False
@@ -113,8 +117,29 @@ class AudioManager:
         return self._make_sound(720, 120, volume)
 
     def start_background_music(self) -> None:
-        if self.music_enabled:
+        if self.music_enabled and not self.muted:
             self.background_channel.play(self.background_music, loops=-1)
+
+    def set_muted(self, muted: bool) -> None:
+        """Mute or unmute all audio managed here."""
+        if not self.music_enabled:
+            return
+        self.muted = bool(muted)
+        try:
+            if self.muted:
+                # pause background and stop movement loop
+                self.background_channel.set_volume(0.0)
+                self.movement_channel.set_volume(0.0)
+                if self.movement_channel.get_busy():
+                    self.movement_channel.stop()
+            else:
+                self.background_channel.set_volume(self._background_vol)
+                self.movement_channel.set_volume(self._movement_vol)
+                # ensure background is playing
+                if not self.background_channel.get_busy():
+                    self.background_channel.play(self.background_music, loops=-1)
+        except Exception:
+            pass
 
     def play_collect(self) -> None:
         if self.music_enabled:
@@ -144,7 +169,7 @@ class AudioManager:
             self.restart_sound.play()
 
     def update_movement_audio(self, is_moving: bool) -> None:
-        if not self.music_enabled:
+        if not self.music_enabled or self.muted:
             return
         if is_moving and not self.movement_channel.get_busy():
             self.movement_channel.play(self.movement_loop, loops=-1)
@@ -262,16 +287,29 @@ class Game:
         self.lives -= 1
         self.audio.play_hit()
         if self.lives > 0:
-            self._show_message('Hit! Respawning...', (255, 180, 50), 1000)
-            self.player.x, self.player.y = 100, 100
-            self.star.x = randint(50, self.config.screen_width - 50)
-            self.star.y = randint(50, self.config.screen_height - 50)
-            self.invincible = True
-            self.invincible_end = now + self.config.invincible_ms
-            return 'respawn'
+            # play hit sound and show a pause menu so the user can choose what to do
+            self.audio.play_hit()
+            action = self._show_pause_menu()
+            if action == 'continue':
+                # respawn
+                self.player.x, self.player.y = 100, 100
+                self.star.x = randint(50, self.config.screen_width - 50)
+                self.star.y = randint(50, self.config.screen_height - 50)
+                self.invincible = True
+                self.invincible_end = now + self.config.invincible_ms
+                return 'respawn'
+            elif action == 'mute_toggle':
+                # toggle mute and return to pause menu
+                self.audio.set_muted(not self.audio.muted)
+                return self._handle_enemy_collision(now)
+            else:
+                # treat as quit
+                self.audio.play_game_over()
+                return 'game_over'
 
         # Play a death sound then indicate game over
         self.audio.play_death()
+        self._flash_screen()
         return 'game_over'
 
     def _show_end_screen(self, message_text: str) -> str:
@@ -289,9 +327,14 @@ class Game:
                         return 'restart'
                     if event.key == pygame.K_q:
                         return 'quit'
+            # draw menu with simple option icons
             self.screen.fill((20, 20, 40))
             text = self.font.render(prompt, True, (255, 255, 255))
             self.screen.blit(text, (self.config.screen_width // 2 - text.get_width() // 2, self.config.screen_height // 2 - 20))
+            # small icons
+            pygame.draw.rect(self.screen, (80, 180, 240), (self.config.screen_width//2 - 140, self.config.screen_height//2 + 40, 40, 40))
+            pygame.draw.rect(self.screen, (140, 255, 140), (self.config.screen_width//2 - 60, self.config.screen_height//2 + 40, 40, 40))
+            pygame.draw.rect(self.screen, (220, 50, 50), (self.config.screen_width//2 + 20, self.config.screen_height//2 + 40, 40, 40))
             pygame.display.flip()
             self.clock.tick(15)
 
@@ -304,6 +347,7 @@ class Game:
         for enemy in self.enemies:
             pygame.draw.rect(self.screen, (220, 50, 50), enemy.rect)
 
+        # HUD
         score_text = self.font.render(f'Score: {self.score}', True, (255, 255, 255))
         self.screen.blit(score_text, (20, 20))
         lives_text = self.font.render(f'Lives: {self.lives}', True, (255, 255, 255))
@@ -311,6 +355,12 @@ class Game:
         time_left = self._time_left(now)
         timer_text = self.font.render(f'Time left: {time_left}', True, (255, 255, 255))
         self.screen.blit(timer_text, (self.config.screen_width - 240, 20))
+
+        # small settings indicator (muted)
+        if self.audio and getattr(self.audio, 'muted', False):
+            mute_text = self.font.render('Muted', True, (200, 200, 200))
+            self.screen.blit(mute_text, (20, 100))
+
         pygame.display.flip()
 
     def _time_left(self, now: int) -> int:
