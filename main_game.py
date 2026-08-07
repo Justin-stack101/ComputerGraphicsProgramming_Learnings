@@ -298,10 +298,6 @@ class Game:
                 self.invincible = True
                 self.invincible_end = now + self.config.invincible_ms
                 return 'respawn'
-            elif action == 'mute_toggle':
-                # toggle mute and return to pause menu
-                self.audio.set_muted(not self.audio.muted)
-                return self._handle_enemy_collision(now)
             else:
                 # treat as quit
                 self.audio.play_game_over()
@@ -315,9 +311,16 @@ class Game:
     def _show_pause_menu(self) -> str:
         """Show a pause menu when the player is hit with options:
         Continue (C), Toggle Mute (M), Quit (Q).
-        Returns 'continue', 'mute_toggle', or 'quit'."""
+        Returns 'continue' or 'quit'. M toggles mute and keeps the menu open."""
         pygame.time.delay(100)
         prompt = 'You were hit! Press C to continue, M to toggle mute, or Q to quit.'
+        # modal styling
+        panel_w = 680
+        panel_h = 200
+        panel_x = (self.config.screen_width - panel_w) // 2
+        panel_y = (self.config.screen_height - panel_h) // 2
+        title_font = pygame.font.SysFont(None, 44)
+        small_font = pygame.font.SysFont(None, 28)
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -329,34 +332,65 @@ class Game:
                     if event.key == pygame.K_c:
                         return 'continue'
                     if event.key == pygame.K_m:
-                        return 'mute_toggle'
+                        # toggle mute but remain in the menu
+                        if self.audio:
+                            self.audio.set_muted(not self.audio.muted)
+                        continue
                     if event.key == pygame.K_q:
                         return 'quit'
-            # draw menu with simple option icons and labels
-            self.screen.fill((20, 20, 40))
-            text = self.font.render(prompt, True, (255, 255, 255))
-            self.screen.blit(text, (self.config.screen_width // 2 - text.get_width() // 2, self.config.screen_height // 2 - 20))
-            # option icons and labels
-            cx = self.config.screen_width // 2
-            cy = self.config.screen_height // 2 + 40
-            pygame.draw.rect(self.screen, (80, 180, 240), (cx - 140, cy, 40, 40))
-            pygame.draw.rect(self.screen, (140, 255, 140), (cx - 60, cy, 40, 40))
-            pygame.draw.rect(self.screen, (220, 50, 50), (cx + 20, cy, 40, 40))
-            label_c = self.font.render('C', True, (0, 0, 0))
-            label_m = self.font.render('M', True, (0, 0, 0))
-            label_q = self.font.render('Q', True, (0, 0, 0))
-            self.screen.blit(label_c, (cx - 140 + 12, cy + 6))
-            self.screen.blit(label_m, (cx - 60 + 12, cy + 6))
-            self.screen.blit(label_q, (cx + 20 + 12, cy + 6))
-            # labels under icons
-            lbl_continue = self.font.render('Continue', True, (200, 200, 200))
-            lbl_mute = self.font.render('Toggle Mute', True, (200, 200, 200))
-            lbl_quit = self.font.render('Quit', True, (200, 200, 200))
-            self.screen.blit(lbl_continue, (cx - 150, cy + 50))
-            self.screen.blit(lbl_mute, (cx - 70, cy + 50))
-            self.screen.blit(lbl_quit, (cx + 10, cy + 50))
+            # draw semi-opaque overlay
+            overlay = pygame.Surface((self.config.screen_width, self.config.screen_height))
+            overlay.fill((10, 10, 14))
+            overlay.set_alpha(190)
+            self.screen.blit(overlay, (0, 0))
+            # panel with shadow
+            shadow = pygame.Surface((panel_w + 8, panel_h + 8))
+            shadow.fill((0, 0, 0))
+            shadow.set_alpha(120)
+            self.screen.blit(shadow, (panel_x + 6, panel_y + 6))
+            panel = pygame.Surface((panel_w, panel_h))
+            panel.fill((30, 36, 48))
+            # panel border
+            pygame.draw.rect(panel, (60, 70, 90), panel.get_rect(), 2)
+            # title
+            title = title_font.render('You were hit!', True, (240, 240, 240))
+            panel.blit(title, (20, 12))
+            # instruction
+            instruction = small_font.render('Press C to continue, M to toggle mute, or Q to quit', True, (200, 200, 200))
+            panel.blit(instruction, (20, 60))
+            # draw buttons
+            btn_x = (panel_w - 220) // 2
+            btn_y = 100
+            # continue button
+            pygame.draw.rect(panel, (80, 180, 240), (btn_x, btn_y, 60, 60))
+            pygame.draw.rect(panel, (60, 150, 210), (btn_x, btn_y, 60, 60), 2)
+            c_label = title_font.render('C', True, (8, 10, 14))
+            panel.blit(c_label, (btn_x + 18, btn_y + 6))
+            # mute button
+            pygame.draw.rect(panel, (140, 255, 140) if not (self.audio and getattr(self.audio, 'muted', False)) else (180, 120, 120), (btn_x + 80, btn_y, 60, 60))
+            pygame.draw.rect(panel, (100, 220, 100), (btn_x + 80, btn_y, 60, 60), 2)
+            m_label = title_font.render('M', True, (8, 10, 14))
+            panel.blit(m_label, (btn_x + 98, btn_y + 6))
+            # quit button
+            pygame.draw.rect(panel, (220, 50, 50), (btn_x + 160, btn_y, 60, 60))
+            pygame.draw.rect(panel, (180, 40, 40), (btn_x + 160, btn_y, 60, 60), 2)
+            q_label = title_font.render('Q', True, (8, 10, 14))
+            panel.blit(q_label, (btn_x + 178, btn_y + 6))
+            # labels
+            lbl_continue = small_font.render('Continue', True, (200, 200, 200))
+            lbl_mute = small_font.render('Toggle Mute', True, (200, 200, 200))
+            lbl_quit = small_font.render('Quit', True, (200, 200, 200))
+            panel.blit(lbl_continue, (btn_x, btn_y + 66))
+            panel.blit(lbl_mute, (btn_x + 80, btn_y + 66))
+            panel.blit(lbl_quit, (btn_x + 160, btn_y + 66))
+            # mute indicator on panel
+            if self.audio and getattr(self.audio, 'muted', False):
+                muted_lbl = small_font.render('Muted', True, (240, 140, 140))
+                panel.blit(muted_lbl, (panel_w - 110, 16))
+            # blit panel
+            self.screen.blit(panel, (panel_x, panel_y))
             pygame.display.flip()
-            self.clock.tick(15)
+            self.clock.tick(30)
 
     def _show_end_screen(self, message_text: str) -> str:
         """Show a restart/quit prompt after the game ends."""
@@ -402,10 +436,18 @@ class Game:
         timer_text = self.font.render(f'Time left: {time_left}', True, (255, 255, 255))
         self.screen.blit(timer_text, (self.config.screen_width - 240, 20))
 
-        # small settings indicator (muted)
-        if self.audio and getattr(self.audio, 'muted', False):
-            mute_text = self.font.render('Muted', True, (200, 200, 200))
-            self.screen.blit(mute_text, (20, 100))
+        # small settings indicator (muted) as an icon
+        if self.audio:
+            if getattr(self.audio, 'muted', False):
+                # muted icon (simple speaker with X)
+                pygame.draw.polygon(self.screen, (200,200,200), [(18,110),(34,102),(34,118)])
+                x1,x2=40,52
+                pygame.draw.line(self.screen,(200,50,50),(x1,105),(x2,125),3)
+                pygame.draw.line(self.screen,(200,50,50),(x1,125),(x2,105),3)
+            else:
+                # speaker icon (unmuted)
+                pygame.draw.polygon(self.screen, (200,200,200), [(18,110),(34,102),(34,118)])
+                pygame.draw.arc(self.screen, (180,220,180), (36,100,18,20), 3.9, 5.5, 2)
 
         pygame.display.flip()
 
