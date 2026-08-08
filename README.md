@@ -7,25 +7,44 @@ This project is a small Pygame demo for a Computer Graphics Programming assignme
 ## Controls
 
 - Move: Arrow keys or WASD
+- Pause / Settings menu: ESC
 - Restart after game over/time up: R
 - Quit after game over/time up: Q
 
+### Start Menu / Intro Screen
+- SPACE / ENTER: Start game
+- M: Mute all sounds
+- B: Mute background music (BGM) only
+- Q: Quit game
+
+### Developer Testing Controls
+Toggle Developer Mode during play by pressing **F12**. An status HUD overlay will appear with the following active key commands:
+- G: Toggle God Mode (Invincibility bypass)
+- T: Add 10 seconds to game timer
+- + / =: Spawn an extra red enemy block
+- -: Remove a red enemy block
+- ]: Increase player movement speed
+- [: Decrease player movement speed
+
 ## Features
 
-- Player movement with keyboard input
-- Moving enemy obstacles
-- Collectible star that increases score
-- 30-second countdown timer
-- Lives system with respawn and invincibility
-- End screen that lets the player restart or quit
-- Procedurally generated background music and movement sound
-- Simple sound effects for collecting stars, getting hit, and game over
+- **Animated Start Menu & Intro Screen** with dynamic floating particles.
+- **Granular Audio System** featuring procedural synthesised background music, movement loops, and feedback sound effect cues.
+- **HUD Indicator Panel** reflecting master audio status and BGM controls.
+- **Global Error boundary & Logging** protecting the program from abrupt closures, with styled callstack details printed on a Pygame error screen and saved locally to `crash_log.txt`.
+- Player movement with keyboard input.
+- Moving enemy obstacles.
+- Collectible star that increases score.
+- 30-second countdown timer.
+- Lives system with respawn and invincibility.
+- End screen that lets the player restart or quit.
 
 ## Project structure
 
 - `main_game.py` — the complete game implementation
 - `README.md` — project documentation
 - `requirements.txt` — Python dependency list
+- `crash_log.txt` — generated log containing timestamps and trace data of unhandled exceptions
 - `.gitignore` — files to ignore in Git
 - `tools/` — helper/debug scripts used during setup and troubleshooting
 
@@ -59,6 +78,6 @@ This project is a small Pygame demo for a Computer Graphics Programming assignme
 
 ## Future ideas
 
-- Add an on-screen “Invincible” indicator
-- Replace the text lives display with heart icons
-- Split the game into multiple modules such as `audio.py`, `config.py`, and `game.py`
+- Replace the text lives display with heart icons.
+- Split the game into multiple modules such as `audio.py`, `config.py`, and `game.py`.
+
