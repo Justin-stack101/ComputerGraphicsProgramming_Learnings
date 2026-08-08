@@ -141,6 +141,15 @@ class AudioManager:
         except Exception:
             pass
 
+    def stop_movement_audio(self) -> None:
+        """Explicitly stop any playing movement loop sound."""
+        if self.music_enabled and hasattr(self, 'movement_channel') and self.movement_channel:
+            try:
+                if self.movement_channel.get_busy():
+                    self.movement_channel.stop()
+            except Exception:
+                pass
+
     def play_collect(self) -> None:
         if self.music_enabled:
             self.collect_sound.play()
@@ -284,11 +293,12 @@ class Game:
         if not any(self.player.colliderect(enemy.rect) for enemy in self.enemies):
             return None
 
+        # Stop movement sound immediately upon hit
+        self.audio.stop_movement_audio()
+
         self.lives -= 1
         self.audio.play_hit()
         if self.lives > 0:
-            # play hit sound and show a pause menu so the user can choose what to do
-            self.audio.play_hit()
             action = self._show_pause_menu()
             if action == 'continue':
                 # respawn
@@ -312,82 +322,89 @@ class Game:
         """Show a pause menu when the player is hit with options:
         Continue (C), Toggle Mute (M), Quit (Q).
         Returns 'continue' or 'quit'. M toggles mute and keeps the menu open."""
+        self.audio.stop_movement_audio()
         pygame.time.delay(100)
-        prompt = 'You were hit! Press C to continue, M to toggle mute, or Q to quit.'
-        # modal styling
-        panel_w = 680
-        panel_h = 200
+        # modal dimensions & position
+        panel_w = 540
+        panel_h = 240
         panel_x = (self.config.screen_width - panel_w) // 2
         panel_y = (self.config.screen_height - panel_h) // 2
-        title_font = pygame.font.SysFont(None, 44)
-        small_font = pygame.font.SysFont(None, 28)
+
+        title_font = pygame.font.SysFont('Arial', 32, bold=True)
+        subtitle_font = pygame.font.SysFont('Arial', 18)
+        btn_key_font = pygame.font.SysFont('Arial', 24, bold=True)
+        btn_label_font = pygame.font.SysFont('Arial', 16, bold=True)
+
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return 'quit'
                 if event.type == pygame.KEYDOWN:
-                    # play small nav sound for feedback
                     if self.audio:
                         self.audio.play_menu_nav()
                     if event.key == pygame.K_c:
                         return 'continue'
                     if event.key == pygame.K_m:
-                        # toggle mute but remain in the menu
                         if self.audio:
                             self.audio.set_muted(not self.audio.muted)
                         continue
                     if event.key == pygame.K_q:
                         return 'quit'
-            # draw semi-opaque overlay
-            overlay = pygame.Surface((self.config.screen_width, self.config.screen_height))
-            overlay.fill((10, 10, 14))
-            overlay.set_alpha(190)
+
+            # 1. Dark semi-transparent background overlay
+            overlay = pygame.Surface((self.config.screen_width, self.config.screen_height), pygame.SRCALPHA)
+            overlay.fill((10, 15, 25, 210))
             self.screen.blit(overlay, (0, 0))
-            # panel with shadow
-            shadow = pygame.Surface((panel_w + 8, panel_h + 8))
-            shadow.fill((0, 0, 0))
-            shadow.set_alpha(120)
-            self.screen.blit(shadow, (panel_x + 6, panel_y + 6))
-            panel = pygame.Surface((panel_w, panel_h))
-            panel.fill((30, 36, 48))
-            # panel border
-            pygame.draw.rect(panel, (60, 70, 90), panel.get_rect(), 2)
-            # title
-            title = title_font.render('You were hit!', True, (240, 240, 240))
-            panel.blit(title, (20, 12))
-            # instruction
-            instruction = small_font.render('Press C to continue, M to toggle mute, or Q to quit', True, (200, 200, 200))
-            panel.blit(instruction, (20, 60))
-            # draw buttons
-            btn_x = (panel_w - 220) // 2
-            btn_y = 100
-            # continue button
-            pygame.draw.rect(panel, (80, 180, 240), (btn_x, btn_y, 60, 60))
-            pygame.draw.rect(panel, (60, 150, 210), (btn_x, btn_y, 60, 60), 2)
-            c_label = title_font.render('C', True, (8, 10, 14))
-            panel.blit(c_label, (btn_x + 18, btn_y + 6))
-            # mute button
-            pygame.draw.rect(panel, (140, 255, 140) if not (self.audio and getattr(self.audio, 'muted', False)) else (180, 120, 120), (btn_x + 80, btn_y, 60, 60))
-            pygame.draw.rect(panel, (100, 220, 100), (btn_x + 80, btn_y, 60, 60), 2)
-            m_label = title_font.render('M', True, (8, 10, 14))
-            panel.blit(m_label, (btn_x + 98, btn_y + 6))
-            # quit button
-            pygame.draw.rect(panel, (220, 50, 50), (btn_x + 160, btn_y, 60, 60))
-            pygame.draw.rect(panel, (180, 40, 40), (btn_x + 160, btn_y, 60, 60), 2)
-            q_label = title_font.render('Q', True, (8, 10, 14))
-            panel.blit(q_label, (btn_x + 178, btn_y + 6))
-            # labels
-            lbl_continue = small_font.render('Continue', True, (200, 200, 200))
-            lbl_mute = small_font.render('Toggle Mute', True, (200, 200, 200))
-            lbl_quit = small_font.render('Quit', True, (200, 200, 200))
-            panel.blit(lbl_continue, (btn_x, btn_y + 66))
-            panel.blit(lbl_mute, (btn_x + 80, btn_y + 66))
-            panel.blit(lbl_quit, (btn_x + 160, btn_y + 66))
-            # mute indicator on panel
-            if self.audio and getattr(self.audio, 'muted', False):
-                muted_lbl = small_font.render('Muted', True, (240, 140, 140))
-                panel.blit(muted_lbl, (panel_w - 110, 16))
-            # blit panel
+
+            # 2. Main Dialog Card Surface
+            panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+            # Modern rounded card style background
+            pygame.draw.rect(panel, (24, 30, 44, 245), (0, 0, panel_w, panel_h), border_radius=12)
+            pygame.draw.rect(panel, (60, 80, 110), (0, 0, panel_w, panel_h), width=2, border_radius=12)
+
+            # Title
+            title = title_font.render('YOU WERE HIT!', True, (255, 90, 90))
+            panel.blit(title, ((panel_w - title.get_width()) // 2, 22))
+
+            # Subtitle instruction
+            sub_text = 'Press the corresponding key to make your choice:'
+            subtitle = subtitle_font.render(sub_text, True, (190, 200, 215))
+            panel.blit(subtitle, ((panel_w - subtitle.get_width()) // 2, 64))
+
+            # 3. Action Option Cards (C: Continue, M: Mute, Q: Quit)
+            cards = [
+                {'key': 'C', 'label': 'Continue', 'bg': (40, 130, 210), 'key_bg': (255, 255, 255), 'key_fg': (15, 20, 30)},
+                {'key': 'M', 'label': 'Unmute' if (self.audio and getattr(self.audio, 'muted', False)) else 'Mute', 
+                 'bg': (180, 70, 70) if (self.audio and getattr(self.audio, 'muted', False)) else (50, 160, 90), 
+                 'key_bg': (255, 255, 255), 'key_fg': (15, 20, 30)},
+                {'key': 'Q', 'label': 'Quit Game', 'bg': (210, 50, 50), 'key_bg': (255, 255, 255), 'key_fg': (15, 20, 30)}
+            ]
+
+            card_w, card_h = 140, 95
+            gap = 20
+            start_x = (panel_w - (3 * card_w + 2 * gap)) // 2
+            card_y = 115
+
+            for idx, c in enumerate(cards):
+                cx = start_x + idx * (card_w + gap)
+                # Card container box
+                pygame.draw.rect(panel, (34, 42, 60), (cx, card_y, card_w, card_h), border_radius=8)
+                pygame.draw.rect(panel, (65, 80, 105), (cx, card_y, card_w, card_h), width=1, border_radius=8)
+
+                # Key Badge (Square keycap look)
+                badge_size = 38
+                bx = cx + (card_w - badge_size) // 2
+                by = card_y + 12
+                pygame.draw.rect(panel, c['bg'], (bx, by, badge_size, badge_size), border_radius=6)
+                
+                key_txt = btn_key_font.render(c['key'], True, (255, 255, 255))
+                panel.blit(key_txt, (bx + (badge_size - key_txt.get_width()) // 2, by + (badge_size - key_txt.get_height()) // 2))
+
+                # Label text below key badge
+                lbl_txt = btn_label_font.render(c['label'], True, (220, 230, 245))
+                panel.blit(lbl_txt, (cx + (card_w - lbl_txt.get_width()) // 2, card_y + 60))
+
+            # Blit panel to screen center
             self.screen.blit(panel, (panel_x, panel_y))
             pygame.display.flip()
             self.clock.tick(30)
@@ -395,26 +412,68 @@ class Game:
     def _show_end_screen(self, message_text: str) -> str:
         """Show a restart/quit prompt after the game ends."""
         pygame.time.delay(200)
-        prompt = message_text + '  Press R to try again or Q to quit.'
+        panel_w = 520
+        panel_h = 240
+        panel_x = (self.config.screen_width - panel_w) // 2
+        panel_y = (self.config.screen_height - panel_h) // 2
+
+        title_font = pygame.font.SysFont('Arial', 32, bold=True)
+        subtitle_font = pygame.font.SysFont('Arial', 18)
+        btn_key_font = pygame.font.SysFont('Arial', 24, bold=True)
+        btn_label_font = pygame.font.SysFont('Arial', 16, bold=True)
+
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return 'quit'
                 if event.type == pygame.KEYDOWN:
-                    # play small nav sound for feedback
                     self.audio.play_menu_nav()
                     if event.key == pygame.K_r:
                         return 'restart'
                     if event.key == pygame.K_q:
                         return 'quit'
-            # draw menu with simple option icons
-            self.screen.fill((20, 20, 40))
-            text = self.font.render(prompt, True, (255, 255, 255))
-            self.screen.blit(text, (self.config.screen_width // 2 - text.get_width() // 2, self.config.screen_height // 2 - 20))
-            # small icons
-            pygame.draw.rect(self.screen, (80, 180, 240), (self.config.screen_width//2 - 140, self.config.screen_height//2 + 40, 40, 40))
-            pygame.draw.rect(self.screen, (140, 255, 140), (self.config.screen_width//2 - 60, self.config.screen_height//2 + 40, 40, 40))
-            pygame.draw.rect(self.screen, (220, 50, 50), (self.config.screen_width//2 + 20, self.config.screen_height//2 + 40, 40, 40))
+
+            overlay = pygame.Surface((self.config.screen_width, self.config.screen_height), pygame.SRCALPHA)
+            overlay.fill((12, 14, 22, 220))
+            self.screen.blit(overlay, (0, 0))
+
+            panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+            pygame.draw.rect(panel, (24, 30, 44, 245), (0, 0, panel_w, panel_h), border_radius=12)
+            pygame.draw.rect(panel, (60, 80, 110), (0, 0, panel_w, panel_h), width=2, border_radius=12)
+
+            title = title_font.render(message_text.upper(), True, (255, 215, 0) if 'TIME' in message_text.upper() else (255, 90, 90))
+            panel.blit(title, ((panel_w - title.get_width()) // 2, 22))
+
+            subtitle = subtitle_font.render('Press R to try again or Q to quit', True, (190, 200, 215))
+            panel.blit(subtitle, ((panel_w - subtitle.get_width()) // 2, 64))
+
+            cards = [
+                {'key': 'R', 'label': 'Play Again', 'bg': (50, 170, 90)},
+                {'key': 'Q', 'label': 'Quit Game', 'bg': (210, 50, 50)}
+            ]
+
+            card_w, card_h = 140, 95
+            gap = 30
+            start_x = (panel_w - (2 * card_w + gap)) // 2
+            card_y = 115
+
+            for idx, c in enumerate(cards):
+                cx = start_x + idx * (card_w + gap)
+                pygame.draw.rect(panel, (34, 42, 60), (cx, card_y, card_w, card_h), border_radius=8)
+                pygame.draw.rect(panel, (65, 80, 105), (cx, card_y, card_w, card_h), width=1, border_radius=8)
+
+                badge_size = 38
+                bx = cx + (card_w - badge_size) // 2
+                by = card_y + 12
+                pygame.draw.rect(panel, c['bg'], (bx, by, badge_size, badge_size), border_radius=6)
+                
+                key_txt = btn_key_font.render(c['key'], True, (255, 255, 255))
+                panel.blit(key_txt, (bx + (badge_size - key_txt.get_width()) // 2, by + (badge_size - key_txt.get_height()) // 2))
+
+                lbl_txt = btn_label_font.render(c['label'], True, (220, 230, 245))
+                panel.blit(lbl_txt, (cx + (card_w - lbl_txt.get_width()) // 2, card_y + 60))
+
+            self.screen.blit(panel, (panel_x, panel_y))
             pygame.display.flip()
             self.clock.tick(15)
 
