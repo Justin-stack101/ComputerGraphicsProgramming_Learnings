@@ -52,11 +52,26 @@ class AudioManager:
         self.music_enabled = False
         self._load_sounds()
 
+    def _make_sound_sweep(self, start_freq: float, end_freq: float, duration_ms: int = 150, volume: float = 0.5) -> pygame.mixer.Sound:
+        sample_rate = 44100
+        sample_count = int(sample_rate * duration_ms / 1000)
+        buffer = bytearray()
+        for index in range(sample_count):
+            fraction = index / sample_count
+            # Linear frequency interpolation
+            current_freq = start_freq + (end_freq - start_freq) * fraction
+            # Phase accumulation to prevent clicks
+            time_val = index / sample_rate
+            value = int(32767 * volume * math.sin(2 * math.pi * current_freq * time_val))
+            buffer.extend(struct.pack('<h', value))
+        return pygame.mixer.Sound(buffer=bytes(buffer))
+
     def _load_sounds(self) -> None:
         try:
             self.collect_sound = self._make_sound(880, 120, 0.5)
             self.hit_sound = self._make_sound(220, 180, 0.7)
-            self.game_over_sound = self._make_sound(110, 250, 0.7)
+            # tuned game over/lose sound: descending frequency sweep for disappointment feel
+            self.game_over_sound = self._make_sound_sweep(300, 80, 600, 0.7)
             # Distinct death sound played when the player loses their last life
             # tuned death sound: lower pitch and longer duration for impact
             self.death_sound = self._make_sound(100, 700, 1.0)
@@ -367,6 +382,11 @@ class Game:
         self.audio.stop_movement_audio()
 
         self.lives -= 1
+        
+        # Play a thunder sound and flashing thunder storm screen effect for EVERY hit
+        self.audio.play_thunder()
+        self._flash_screen((240, 245, 255), duration_ms=250)
+
         self.audio.play_hit()
         if self.lives > 0:
             action = self._show_pause_menu()
@@ -379,16 +399,13 @@ class Game:
                 self.invincible_end = now + self.config.invincible_ms
                 return 'respawn'
             else:
-                # treat as quit
+                # treat as quit and trigger game over sound
                 self.audio.play_game_over()
                 return 'game_over'
 
-        # Play a thunder sound and flashing thunder storm screen effect
-        self.audio.play_thunder()
-        self._flash_screen((240, 245, 255), duration_ms=250)
-        
         # Play standard death sound then indicate game over
         self.audio.play_death()
+        self.audio.play_game_over()
         self._flash_screen()
         return 'game_over'
 
