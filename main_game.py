@@ -76,6 +76,51 @@ class AudioManager:
         except pygame.error:
             self.music_enabled = False
 
+    def _make_sound(self, frequency: float, duration_ms: int = 150, volume: float = 0.5) -> pygame.mixer.Sound:
+        sample_rate = 44100
+        sample_count = int(sample_rate * duration_ms / 1000)
+        buffer = bytearray()
+        for index in range(sample_count):
+            value = int(32767 * volume * math.sin(2 * math.pi * frequency * index / sample_rate))
+            buffer.extend(struct.pack('<h', value))
+        return pygame.mixer.Sound(buffer=bytes(buffer))
+
+    def _make_background_music(self, loop_seconds: float = 2.2, volume: float = 0.18) -> pygame.mixer.Sound:
+        sample_rate = 44100
+        loop_samples = int(sample_rate * loop_seconds)
+        buffer = bytearray()
+        note_pattern = [
+            (261.63, 0.24),
+            (329.63, 0.24),
+            (392.00, 0.24),
+            (523.25, 0.24),
+            (392.00, 0.24),
+            (329.63, 0.24),
+            (261.63, 0.24),
+            (196.00, 0.24),
+        ]
+        for note_freq, note_len in note_pattern:
+            note_samples = int(sample_rate * note_len)
+            for index in range(note_samples):
+                time_value = index / sample_rate
+                primary = math.sin(2 * math.pi * note_freq * time_value)
+                bass = 0.35 * math.sin(2 * math.pi * (note_freq * 0.5) * time_value)
+                fade_in = min(index / (sample_rate * 0.03), 1.0)
+                fade_out = (note_samples - index) / (sample_rate * 0.03)
+                fade = min(fade_in, max(0.0, fade_out))
+                sample = int(32767 * volume * fade * (0.75 * primary + 0.25 * bass))
+                buffer.extend(struct.pack('<h', sample))
+        while len(buffer) < loop_samples * 2:
+            buffer.extend(buffer)
+        return pygame.mixer.Sound(buffer=bytes(buffer[:loop_samples * 2]))
+
+    def _make_movement_sound(self, volume: float = 0.12) -> pygame.mixer.Sound:
+        return self._make_sound(720, 120, volume)
+
+    def start_background_music(self) -> None:
+        if self.music_enabled and not self.muted:
+            self.background_channel.play(self.background_music, loops=-1)
+
     def set_muted_all(self, muted: bool) -> None:
         """Mute or unmute ALL sounds and music."""
         if not self.music_enabled:
