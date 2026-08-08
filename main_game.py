@@ -555,66 +555,132 @@ class Game:
     def _time_left(self, now: int) -> int:
         return max(0, self.config.timer_seconds - (now - self.start_ticks) // 1000)
 
-    def run(self) -> None:
-        """Run the main game loop until the player quits or ends the game."""
-        # 1. Display Intro / Start Menu Screen first
-        start_action = self._show_start_menu()
-        if start_action == 'quit':
-            pygame.quit()
-            return
+    def _show_error_screen(self, error: Exception, tb_str: str) -> None:
+        """Display an error boundary screen when an unhandled exception occurs."""
+        log_file = os.path.join(script_dir, 'crash_log.txt')
+        import datetime
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        log_entry = f"[{timestamp}] CRASH REPORT:\nError: {type(error).__name__}: {error}\nTraceback:\n{tb_str}\n{'='*60}\n"
 
-        running = True
-        while running:
+        try:
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write(log_entry)
+        except Exception:
+            pass
+
+        title_font = pygame.font.SysFont('Arial', 28, bold=True)
+        sub_font = pygame.font.SysFont('Arial', 16)
+        code_font = pygame.font.SysFont('Consolas', 14)
+
+        panel_w, panel_h = 700, 420
+        panel_x = (self.config.screen_width - panel_w) // 2
+        panel_y = (self.config.screen_height - panel_h) // 2
+
+        tb_lines = [line.strip() for line in tb_str.split('\n') if line.strip()][-6:]
+
+        while True:
             for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+                if event.type in (pygame.QUIT, pygame.KEYDOWN):
+                    return
+
+            self.screen.fill((15, 10, 15))
+            panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+            pygame.draw.rect(panel, (30, 18, 22, 250), (0, 0, panel_w, panel_h), border_radius=12)
+            pygame.draw.rect(panel, (220, 60, 60), (0, 0, panel_w, panel_h), width=2, border_radius=12)
+
+            title = title_font.render('GAME ENCOUNTERED A PROBLEM', True, (255, 80, 80))
+            panel.blit(title, (20, 20))
+
+            desc = sub_font.render(f"Reason: {type(error).__name__} - {error}", True, (240, 210, 210))
+            panel.blit(desc, (20, 60))
+
+            log_lbl = sub_font.render(f"Saved to: crash_log.txt  |  Trace Details:", True, (180, 180, 180))
+            panel.blit(log_lbl, (20, 95))
+
+            # Code box
+            pygame.draw.rect(panel, (18, 10, 12), (20, 125, panel_w - 40, 220), border_radius=6)
+            for idx, line in enumerate(tb_lines):
+                txt = code_font.render(line[:85], True, (230, 160, 160))
+                panel.blit(txt, (30, 135 + idx * 30))
+
+            close_hint = sub_font.render("Press any key or close window to exit...", True, (200, 200, 200))
+            panel.blit(close_hint, ((panel_w - close_hint.get_width()) // 2, 370))
+
+            self.screen.blit(panel, (panel_x, panel_y))
+            pygame.display.flip()
+            self.clock.tick(15)
+
+    def run(self) -> None:
+        """Run the main game loop wrapped in a crash error boundary."""
+        import traceback
+        try:
+            # 1. Display Intro / Start Menu Screen first
+            start_action = self._show_start_menu()
+            if start_action == 'quit':
+                pygame.quit()
+                return
+
+            running = True
+            while running:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                        break
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            action = self._show_pause_menu()
+                            if action == 'quit':
+                                running = False
+                                break
+
+                if not running:
+                    break
+
+                keys = pygame.key.get_pressed()
+                now = pygame.time.get_ticks()
+                self._update_invincibility(now)
+
+                is_moving = self._move_player(keys)
+                self.audio.update_movement_audio(is_moving)
+                self._update_enemies()
+                self._collect_star()
+
+                collision_result = self._handle_enemy_collision(now)
+                if collision_result == 'respawn':
+                    continue
+                if collision_result == 'game_over':
+                    action = self._show_end_screen('Game Over! No lives left.')
+                    if action == 'restart':
+                        self.audio.play_restart()
+                        self.reset()
+                        continue
                     running = False
                     break
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        action = self._show_pause_menu()
-                        if action == 'quit':
-                            running = False
-                            break
 
-            if not running:
-                break
+                self._draw(now)
+                if self._time_left(now) == 0:
+                    self.audio.play_death()
+                    self._flash_screen()
+                    action = self._show_end_screen('Time up! Well done.')
+                    if action == 'restart':
+                        self.audio.play_restart()
+                        self.reset()
+                        continue
+                    running = False
+                    break
 
-            keys = pygame.key.get_pressed()
-            now = pygame.time.get_ticks()
-            self._update_invincibility(now)
+                self.clock.tick(60)
 
-            is_moving = self._move_player(keys)
-            self.audio.update_movement_audio(is_moving)
-            self._update_enemies()
-            self._collect_star()
+        except Exception as e:
+            tb_str = traceback.format_exc()
+            print(f"\n[GAME CRASH DETECTED]\n{tb_str}", file=sys.stderr)
+            try:
+                self._show_error_screen(e, tb_str)
+            except Exception:
+                pass
 
-            collision_result = self._handle_enemy_collision(now)
-            if collision_result == 'respawn':
-                continue
-            if collision_result == 'game_over':
-                action = self._show_end_screen('Game Over! No lives left.')
-                if action == 'restart':
-                    self.audio.play_restart()
-                    self.reset()
-                    continue
-                running = False
-                break
-
-            self._draw(now)
-            if self._time_left(now) == 0:
-                self.audio.play_death()
-                self._flash_screen()
-                action = self._show_end_screen('Time up! Well done.')
-                if action == 'restart':
-                    self.audio.play_restart()
-                    self.reset()
-                    continue
-                running = False
-                break
-
-            self.clock.tick(60)
-
-        pygame.quit()
+        finally:
+            pygame.quit()
 
 
 if __name__ == '__main__':
