@@ -221,6 +221,11 @@ class Game:
         self.font = pygame.font.SysFont(None, 36)
         self.audio = AudioManager()
         self.audio.start_background_music()
+        
+        # Developer Mode parameters
+        self.dev_mode = False
+        self.god_mode = False
+        
         self.reset()
 
     def reset(self) -> None:
@@ -310,7 +315,7 @@ class Game:
             pass
 
     def _handle_enemy_collision(self, now: int) -> str | None:
-        if self.invincible:
+        if self.invincible or self.god_mode:
             return None
         if not any(self.player.colliderect(enemy.rect) for enemy in self.enemies):
             return None
@@ -550,6 +555,27 @@ class Game:
                 txt = small_font.render('BGM: MUTED (B)', True, (240, 180, 100))
                 self.screen.blit(txt, (20, 100))
 
+        # Developer Mode Overlay
+        if self.dev_mode:
+            dev_title = small_font.render('--- DEVELOPER MODE ACTIVE ---', True, (0, 255, 128))
+            self.screen.blit(dev_title, (self.config.screen_width - 240, 60))
+            
+            god_status = 'ON (Press G)' if self.god_mode else 'OFF (Press G)'
+            god_txt = small_font.render(f'God Mode: {god_status}', True, (0, 255, 128) if self.god_mode else (180, 180, 180))
+            self.screen.blit(god_txt, (self.config.screen_width - 240, 80))
+            
+            enemies_txt = small_font.render(f'Enemies: {len(self.enemies)} (Press +/- to tune)', True, (180, 180, 180))
+            self.screen.blit(enemies_txt, (self.config.screen_width - 240, 100))
+            
+            speed_txt = small_font.render(f'Player Speed: {self.config.player_speed} (Press [ / ])', True, (180, 180, 180))
+            self.screen.blit(speed_txt, (self.config.screen_width - 240, 120))
+            
+            time_txt = small_font.render('Press T to Add 10 Seconds', True, (180, 180, 180))
+            self.screen.blit(time_txt, (self.config.screen_width - 240, 140))
+        else:
+            dev_txt = small_font.render('Press F12 for Developer Tools', True, (120, 130, 150))
+            self.screen.blit(dev_txt, (self.config.screen_width - 240, 60))
+
         pygame.display.flip()
 
     def _time_left(self, now: int) -> int:
@@ -700,6 +726,46 @@ class Game:
                             if action == 'quit':
                                 running = False
                                 break
+                        # Developer Mode Toggles
+                        if event.key == pygame.K_F12:
+                            self.dev_mode = not self.dev_mode
+                            if self.audio:
+                                self.audio.play_menu_nav()
+                        if self.dev_mode:
+                            if event.key == pygame.K_g:
+                                self.god_mode = not self.god_mode
+                                if self.audio:
+                                    self.audio.play_menu_nav()
+                            if event.key == pygame.K_t:
+                                # Add 10 seconds to the timer
+                                self.start_ticks += 10000
+                                if self.audio:
+                                    self.audio.play_collect()
+                            if event.key in (pygame.K_EQUALS, pygame.K_PLUS):
+                                # Add an enemy
+                                x = randint(200, self.config.screen_width - 100)
+                                y = randint(50, self.config.screen_height - 100)
+                                speed = randint(2, 5)
+                                direction = 1 if len(self.enemies) % 2 == 0 else -1
+                                self.enemies.append(Enemy(rect=pygame.Rect(x, y, 60, 60), speed=speed, direction=direction))
+                                if self.audio:
+                                    self.audio.play_menu_nav()
+                            if event.key in (pygame.K_MINUS, pygame.K_UNDERSCORE):
+                                # Remove an enemy
+                                if self.enemies:
+                                    self.enemies.pop()
+                                    if self.audio:
+                                        self.audio.play_menu_nav()
+                            if event.key == pygame.K_RIGHTBRACKET:
+                                # Increase speed
+                                self.config.player_speed = min(20, self.config.player_speed + 1)
+                                if self.audio:
+                                    self.audio.play_menu_nav()
+                            if event.key == pygame.K_LEFTBRACKET:
+                                # Decrease speed
+                                self.config.player_speed = max(1, self.config.player_speed - 1)
+                                if self.audio:
+                                    self.audio.play_menu_nav()
 
                 if not running:
                     break
