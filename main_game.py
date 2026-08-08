@@ -63,6 +63,10 @@ class AudioManager:
             self.restart_sound = self._make_sound(660, 120, 0.5)
             # small navigation/click sound for end-screen choices
             self.menu_nav = self._make_sound(1200, 70, 0.6)
+            
+            # Procedural Thunder sound (low rumble with white noise crackle)
+            self.thunder_sound = self._make_thunder_sound()
+            
             self.background_music = self._make_background_music()
             self.movement_loop = self._make_movement_sound()
             self.background_channel = pygame.mixer.Channel(0)
@@ -116,6 +120,45 @@ class AudioManager:
 
     def _make_movement_sound(self, volume: float = 0.12) -> pygame.mixer.Sound:
         return self._make_sound(720, 120, volume)
+
+    def _make_thunder_sound(self, duration_ms: int = 1500, volume: float = 0.85) -> pygame.mixer.Sound:
+        import random
+        sample_rate = 44100
+        sample_count = int(sample_rate * duration_ms / 1000)
+        buffer = bytearray()
+        
+        for index in range(sample_count):
+            time_val = index / sample_rate
+            # 1. Low frequency earthquake rumble (30Hz - 85Hz dynamic modulation)
+            rumble_freq = 45 + 15 * math.sin(2 * math.pi * 3.5 * time_val)
+            rumble = math.sin(2 * math.pi * rumble_freq * time_val)
+            
+            # 2. Crackling electricity / white noise component
+            noise = random.uniform(-1.0, 1.0)
+            
+            # 3. Dynamic envelope (sharp strike, crackling decay, fading rumble)
+            strike_end = int(sample_rate * 0.15)
+            if index < strike_end:
+                # Initial lightning strike
+                envelope = 1.0
+                mix = 0.5 * rumble + 0.5 * noise
+            else:
+                # Decaying thunder rumble
+                progress = (index - strike_end) / (sample_count - strike_end)
+                envelope = (1.0 - progress) ** 2.0
+                # crackle dissipates, leaving low sub-bass rumble
+                crackle_fade = max(0.0, 1.0 - progress * 3.0)
+                mix = 0.85 * rumble + 0.15 * noise * crackle_fade
+            
+            value = int(32767 * volume * envelope * mix)
+            buffer.extend(struct.pack('<h', value))
+            
+        return pygame.mixer.Sound(buffer=bytes(buffer))
+
+    def play_thunder(self) -> None:
+        """Play the procedural thunder strike sound effect."""
+        if self.music_enabled and not self.muted_all:
+            self.thunder_sound.play()
 
     def start_background_music(self) -> None:
         if self.music_enabled and not self.muted:
@@ -340,7 +383,11 @@ class Game:
                 self.audio.play_game_over()
                 return 'game_over'
 
-        # Play a death sound then indicate game over
+        # Play a thunder sound and flashing thunder storm screen effect
+        self.audio.play_thunder()
+        self._flash_screen((240, 245, 255), duration_ms=250)
+        
+        # Play standard death sound then indicate game over
         self.audio.play_death()
         self._flash_screen()
         return 'game_over'
