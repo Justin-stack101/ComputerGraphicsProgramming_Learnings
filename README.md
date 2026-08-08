@@ -37,6 +37,9 @@ Toggle Developer Mode during play by pressing **F12**. An status HUD overlay wil
 - Collectible star that increases score.
 - 30-second countdown timer.
 - Lives system with respawn and invincibility.
+- **Fire Debris Particle Explosion Engine**: Renders 35 dynamic, color-blending, physics-simulated fire particles at the collision point when the player hits a red block.
+- **Synchronized Thunder & Lightning storm effects**: Screen flashes bright blue/white accompanied by a custom procedurally synthesized cracking thunder strike on *every* collision.
+- **Losing sound sweep**: Plays a custom synthesized descending pitch frequency sweep representing disappointment upon Game Over.
 - End screen that lets the player restart or quit.
 
 ## Project structure
