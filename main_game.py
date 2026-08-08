@@ -298,6 +298,7 @@ class Game:
             20,
         )
         self.enemies = self._create_enemies()
+        self.particles = []  # active visual explosion particle objects
         self.invincible = False
         self.invincible_end = 0
         self.start_ticks = pygame.time.get_ticks()
@@ -372,11 +373,66 @@ class Game:
             # If anything goes wrong with the visual effect, silently ignore it.
             pass
 
+    def _trigger_explosion(self, x: int, y: int) -> None:
+        """Create a cluster of particle effects to simulate an explosion."""
+        import random
+        # Spawn 35 visual fire debris particles
+        for _ in range(35):
+            angle = random.uniform(0, 2 * math.pi)
+            speed = random.uniform(3, 8)
+            dx = math.cos(angle) * speed
+            dy = math.sin(angle) * speed
+            # Dynamic colors: mix of fire orange, bright yellow, and red
+            color = random.choice([
+                (255, 69, 0),    # OrangeRed
+                (255, 140, 0),   # DarkOrange
+                (255, 215, 0),   # Gold
+                (220, 20, 60)    # Crimson
+            ])
+            size = random.randint(3, 8)
+            life = random.randint(20, 45) # life frames
+            self.particles.append({
+                'x': float(x),
+                'y': float(y),
+                'dx': dx,
+                'dy': dy,
+                'color': color,
+                'size': size,
+                'life': life,
+                'max_life': life
+            })
+
+    def _update_particles(self) -> None:
+        """Update and clean up active particle effects."""
+        active_particles = []
+        for p in self.particles:
+            p['x'] += p['dx']
+            p['y'] += p['dy']
+            # Apply deceleration/friction to particles
+            p['dx'] *= 0.96
+            p['dy'] *= 0.96
+            p['life'] -= 1
+            if p['life'] > 0:
+                active_particles.append(p)
+        self.particles = active_particles
+
     def _handle_enemy_collision(self, now: int) -> str | None:
         if self.invincible or self.god_mode:
             return None
-        if not any(self.player.colliderect(enemy.rect) for enemy in self.enemies):
+            
+        collided_enemy = None
+        for enemy in self.enemies:
+            if self.player.colliderect(enemy.rect):
+                collided_enemy = enemy
+                break
+                
+        if not collided_enemy:
             return None
+
+        # Trigger explosion at collision midpoint
+        mid_x = (self.player.centerx + collided_enemy.rect.centerx) // 2
+        mid_y = (self.player.centery + collided_enemy.rect.centery) // 2
+        self._trigger_explosion(mid_x, mid_y)
 
         # Stop movement sound immediately upon hit
         self.audio.stop_movement_audio()
@@ -599,6 +655,12 @@ class Game:
         pygame.draw.rect(self.screen, (255, 255, 0), self.star)
         for enemy in self.enemies:
             pygame.draw.rect(self.screen, (220, 50, 50), enemy.rect)
+
+        # Draw active explosion particles
+        for p in self.particles:
+            # Scale particle size according to its remaining life
+            current_size = max(1, int(p['size'] * (p['life'] / p['max_life'])))
+            pygame.draw.circle(self.screen, p['color'], (int(p['x']), int(p['y'])), current_size)
 
         # HUD
         score_text = self.font.render(f'Score: {self.score}', True, (255, 255, 255))
@@ -842,6 +904,7 @@ class Game:
                 self.audio.update_movement_audio(is_moving)
                 self._update_enemies()
                 self._collect_star()
+                self._update_particles()
 
                 collision_result = self._handle_enemy_collision(now)
                 if collision_result == 'respawn':
