@@ -555,6 +555,74 @@ class Game:
     def _time_left(self, now: int) -> int:
         return max(0, self.config.timer_seconds - (now - self.start_ticks) // 1000)
 
+    def _show_end_screen(self, message_text: str) -> str:
+        """Show a restart/quit prompt after the game ends."""
+        pygame.time.delay(200)
+        panel_w = 520
+        panel_h = 240
+        panel_x = (self.config.screen_width - panel_w) // 2
+        panel_y = (self.config.screen_height - panel_h) // 2
+
+        title_font = pygame.font.SysFont('Arial', 32, bold=True)
+        subtitle_font = pygame.font.SysFont('Arial', 18)
+        btn_key_font = pygame.font.SysFont('Arial', 24, bold=True)
+        btn_label_font = pygame.font.SysFont('Arial', 16, bold=True)
+
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return 'quit'
+                if event.type == pygame.KEYDOWN:
+                    self.audio.play_menu_nav()
+                    if event.key == pygame.K_r:
+                        return 'restart'
+                    if event.key == pygame.K_q:
+                        return 'quit'
+
+            overlay = pygame.Surface((self.config.screen_width, self.config.screen_height), pygame.SRCALPHA)
+            overlay.fill((12, 14, 22, 220))
+            self.screen.blit(overlay, (0, 0))
+
+            panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+            pygame.draw.rect(panel, (24, 30, 44, 245), (0, 0, panel_w, panel_h), border_radius=12)
+            pygame.draw.rect(panel, (60, 80, 110), (0, 0, panel_w, panel_h), width=2, border_radius=12)
+
+            title = title_font.render(message_text.upper(), True, (255, 215, 0) if 'TIME' in message_text.upper() else (255, 90, 90))
+            panel.blit(title, ((panel_w - title.get_width()) // 2, 22))
+
+            subtitle = subtitle_font.render('Press R to try again or Q to quit', True, (190, 200, 215))
+            panel.blit(subtitle, ((panel_w - subtitle.get_width()) // 2, 64))
+
+            cards = [
+                {'key': 'R', 'label': 'Play Again', 'bg': (50, 170, 90)},
+                {'key': 'Q', 'label': 'Quit Game', 'bg': (210, 50, 50)}
+            ]
+
+            card_w, card_h = 140, 95
+            gap = 30
+            start_x = (panel_w - (2 * card_w + gap)) // 2
+            card_y = 115
+
+            for idx, c in enumerate(cards):
+                cx = start_x + idx * (card_w + gap)
+                pygame.draw.rect(panel, (34, 42, 60), (cx, card_y, card_w, card_h), border_radius=8)
+                pygame.draw.rect(panel, (65, 80, 105), (cx, card_y, card_w, card_h), width=1, border_radius=8)
+
+                badge_size = 38
+                bx = cx + (card_w - badge_size) // 2
+                by = card_y + 12
+                pygame.draw.rect(panel, c['bg'], (bx, by, badge_size, badge_size), border_radius=6)
+                
+                key_txt = btn_key_font.render(c['key'], True, (255, 255, 255))
+                panel.blit(key_txt, (bx + (badge_size - key_txt.get_width()) // 2, by + (badge_size - key_txt.get_height()) // 2))
+
+                lbl_txt = btn_label_font.render(c['label'], True, (220, 230, 245))
+                panel.blit(lbl_txt, (cx + (card_w - lbl_txt.get_width()) // 2, card_y + 60))
+
+            self.screen.blit(panel, (panel_x, panel_y))
+            pygame.display.flip()
+            self.clock.tick(15)
+
     def _show_error_screen(self, error: Exception, tb_str: str) -> None:
         """Display an error boundary screen when an unhandled exception occurs."""
         log_file = os.path.join(script_dir, 'crash_log.txt')
