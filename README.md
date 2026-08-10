@@ -50,6 +50,7 @@ Toggle Developer Mode during play by pressing **F12**. An status HUD overlay wil
 - `main_game.py` — the complete game implementation
 - `README.md` — project documentation
 - `RUNNING_INSTRUCTIONS.md` — step-by-step setup and execution guide
+- `FUTURE_ROADMAP.md` — future development roadmap and web system porting plans
 - `requirements.txt` — Python dependency list
 - `crash_log.txt` — generated log containing timestamps and trace data of unhandled exceptions
 - `.gitignore` — files to ignore in Git
@@ -85,8 +86,8 @@ For full details, see [RUNNING_INSTRUCTIONS.md](file:///c:/Users/justi/Downloads
 - If you change gameplay values, edit `main_game.py` directly.
 - If pygame is missing, install it with `python -m pip install pygame-ce`.
 
-## Future ideas
+## Future Roadmap
 
-- Replace the text lives display with heart icons.
-- Split the game into multiple modules such as `audio.py`, `config.py`, and `game.py`.
+For full details on web porting, multi-game modes, and 2-Player modes, see [FUTURE_ROADMAP.md](file:///c:/Users/justi/Downloads/School%20Files/MainProjectCollection/Computer%20Graphics%20Programming/FUTURE_ROADMAP.md).
+
 
