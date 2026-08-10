@@ -47,12 +47,15 @@ Toggle Developer Mode during play by pressing **F12**. An status HUD overlay wil
 
 - `main_game.py` — the complete game implementation
 - `README.md` — project documentation
+- `RUNNING_INSTRUCTIONS.md` — step-by-step setup and execution guide
 - `requirements.txt` — Python dependency list
 - `crash_log.txt` — generated log containing timestamps and trace data of unhandled exceptions
 - `.gitignore` — files to ignore in Git
 - `tools/` — helper/debug scripts used during setup and troubleshooting
 
 ## How to run on Windows
+
+For full details, see [RUNNING_INSTRUCTIONS.md](file:///c:/Users/justi/Downloads/School%20Files/MainProjectCollection/Computer%20Graphics%20Programming/RUNNING_INSTRUCTIONS.md).
 
 1. Open PowerShell or Command Prompt.
 2. Change into the project folder:
