@@ -89,11 +89,57 @@ class AudioManager:
             # track mute state and default volumes
             self.muted_all = False
             self.muted_music = False
+            self.muted_sfx = False
+            self.master_volume = 1.0
+            self.bgm_volume = 1.0
+            self.sfx_volume = 1.0
             self._background_vol = 1.0
             self._movement_vol = 1.0
             self.music_enabled = True
+            self.apply_volumes()
         except pygame.error:
             self.music_enabled = False
+
+    def apply_volumes(self) -> None:
+        """Recalculate and apply volume levels to all background and sound effect channels."""
+        if not self.music_enabled:
+            return
+        eff_bgm = 0.0 if (self.muted_all or self.muted_music) else (self.master_volume * self.bgm_volume)
+        eff_sfx = 0.0 if (self.muted_all or self.muted_sfx) else (self.master_volume * self.sfx_volume)
+
+        try:
+            if hasattr(self, 'background_channel') and self.background_channel:
+                self.background_channel.set_volume(eff_bgm * self._background_vol)
+                if eff_bgm > 0.0:
+                    if not self.background_channel.get_busy() and hasattr(self, 'background_music'):
+                        self.background_channel.play(self.background_music, loops=-1)
+                else:
+                    if self.background_channel.get_busy():
+                        self.background_channel.set_volume(0.0)
+
+            if hasattr(self, 'movement_channel') and self.movement_channel:
+                self.movement_channel.set_volume(eff_sfx * self._movement_vol)
+
+            sound_list = ['collect_sound', 'hit_sound', 'game_over_sound', 'death_sound', 'restart_sound', 'menu_nav', 'thunder_sound']
+            for snd_name in sound_list:
+                if hasattr(self, snd_name):
+                    snd = getattr(self, snd_name)
+                    if hasattr(snd, 'set_volume'):
+                        snd.set_volume(eff_sfx)
+        except Exception:
+            pass
+
+    def set_master_volume(self, vol: float) -> None:
+        self.master_volume = max(0.0, min(1.0, round(vol, 2)))
+        self.apply_volumes()
+
+    def set_bgm_volume(self, vol: float) -> None:
+        self.bgm_volume = max(0.0, min(1.0, round(vol, 2)))
+        self.apply_volumes()
+
+    def set_sfx_volume(self, vol: float) -> None:
+        self.sfx_volume = max(0.0, min(1.0, round(vol, 2)))
+        self.apply_volumes()
 
     def _make_sound(self, frequency: float, duration_ms: int = 150, volume: float = 0.5) -> pygame.mixer.Sound:
         sample_rate = 44100
@@ -177,42 +223,21 @@ class AudioManager:
 
     def start_background_music(self) -> None:
         if self.music_enabled and not self.muted:
-            self.background_channel.play(self.background_music, loops=-1)
+            self.apply_volumes()
 
     def set_muted_all(self, muted: bool) -> None:
         """Mute or unmute ALL sounds and music."""
         if not self.music_enabled:
             return
         self.muted_all = bool(muted)
-        try:
-            if self.muted_all:
-                self.background_channel.set_volume(0.0)
-                self.movement_channel.set_volume(0.0)
-                if self.movement_channel.get_busy():
-                    self.movement_channel.stop()
-            else:
-                if not self.muted_music:
-                    self.background_channel.set_volume(self._background_vol)
-                self.movement_channel.set_volume(self._movement_vol)
-                if not self.background_channel.get_busy() and not self.muted_music:
-                    self.background_channel.play(self.background_music, loops=-1)
-        except Exception:
-            pass
+        self.apply_volumes()
 
     def set_muted_music(self, muted: bool) -> None:
         """Mute or unmute ONLY background music."""
         if not self.music_enabled:
             return
         self.muted_music = bool(muted)
-        try:
-            if self.muted_music or self.muted_all:
-                self.background_channel.set_volume(0.0)
-            else:
-                self.background_channel.set_volume(self._background_vol)
-                if not self.background_channel.get_busy():
-                    self.background_channel.play(self.background_music, loops=-1)
-        except Exception:
-            pass
+        self.apply_volumes()
 
     @property
     def muted(self) -> bool:
@@ -231,34 +256,36 @@ class AudioManager:
                 pass
 
     def play_collect(self) -> None:
-        if self.music_enabled:
+        if self.music_enabled and not self.muted_all and not self.muted_sfx:
             self.collect_sound.play()
 
     def play_hit(self) -> None:
-        if self.music_enabled:
+        if self.music_enabled and not self.muted_all and not self.muted_sfx:
             self.hit_sound.play()
 
     def play_game_over(self) -> None:
-        if self.music_enabled:
+        if self.music_enabled and not self.muted_all and not self.muted_sfx:
             self.game_over_sound.play()
 
     def play_death(self) -> None:
         """Play the death sound (used when the player loses their last life)."""
-        if self.music_enabled:
+        if self.music_enabled and not self.muted_all and not self.muted_sfx:
             # play immediately
             self.death_sound.play()
 
     def play_menu_nav(self) -> None:
         """Play a small nav/click sound when the user moves or selects in menus."""
-        if self.music_enabled and hasattr(self, 'menu_nav'):
+        if self.music_enabled and hasattr(self, 'menu_nav') and not self.muted_all and not self.muted_sfx:
             self.menu_nav.play()
 
     def play_restart(self) -> None:
-        if self.music_enabled:
+        if self.music_enabled and not self.muted_all and not self.muted_sfx:
             self.restart_sound.play()
 
     def update_movement_audio(self, is_moving: bool) -> None:
-        if not self.music_enabled or self.muted:
+        if not self.music_enabled or self.muted or self.muted_sfx:
+            if hasattr(self, 'movement_channel') and self.movement_channel and self.movement_channel.get_busy():
+                self.movement_channel.stop()
             return
         if is_moving and not self.movement_channel.get_busy():
             self.movement_channel.play(self.movement_loop, loops=-1)
@@ -276,6 +303,127 @@ class GameState:
         pass
 
 
+class SettingsState(GameState):
+    """Submenu for configuring master/music/SFX volume and audio settings."""
+    def __init__(self, return_state: GameState) -> None:
+        self.return_state = return_state
+        self.selected_idx = 0
+        self.start_time = pygame.time.get_ticks()
+
+    def handle_event(self, game: 'Game', event: pygame.event.Event) -> None:
+        options = ['master', 'bgm', 'sfx', 'audio_toggle', 'back']
+
+        if event.type == pygame.KEYDOWN:
+            if event.key in (pygame.K_UP, pygame.K_w):
+                self.selected_idx = (self.selected_idx - 1) % len(options)
+                game.audio.play_menu_nav()
+            elif event.key in (pygame.K_DOWN, pygame.K_s):
+                self.selected_idx = (self.selected_idx + 1) % len(options)
+                game.audio.play_menu_nav()
+            elif event.key in (pygame.K_LEFT, pygame.K_a):
+                self._adjust(game, options[self.selected_idx], -0.1)
+            elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                self._adjust(game, options[self.selected_idx], 0.1)
+            elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                opt = options[self.selected_idx]
+                if opt == 'audio_toggle':
+                    game.audio.set_muted_all(not game.audio.muted_all)
+                    game.audio.play_menu_nav()
+                elif opt == 'back':
+                    game.audio.play_menu_nav()
+                    game.state = self.return_state
+            elif event.key == pygame.K_ESCAPE:
+                game.audio.play_menu_nav()
+                game.state = self.return_state
+
+    def _adjust(self, game: 'Game', option_id: str, delta: float) -> None:
+        if option_id == 'master':
+            game.audio.set_master_volume(game.audio.master_volume + delta)
+            game.audio.play_menu_nav()
+        elif option_id == 'bgm':
+            game.audio.set_bgm_volume(game.audio.bgm_volume + delta)
+            game.audio.play_menu_nav()
+        elif option_id == 'sfx':
+            game.audio.set_sfx_volume(game.audio.sfx_volume + delta)
+            game.audio.play_menu_nav()
+        elif option_id == 'audio_toggle':
+            game.audio.set_muted_all(not game.audio.muted_all)
+            game.audio.play_menu_nav()
+
+    def update(self, game: 'Game', dt: float) -> None:
+        if isinstance(self.return_state, PauseState):
+            self.return_state.update(game, dt)
+
+    def render(self, game: 'Game', surface: pygame.Surface) -> None:
+        if isinstance(self.return_state, PauseState):
+            self.return_state.render(game, surface)
+        else:
+            surface.fill((10, 14, 26))
+
+        now = pygame.time.get_ticks()
+        elapsed = (now - self.start_time) / 1000.0
+
+        panel_w, panel_h = 580, 420
+        panel_x = (game.config.screen_width - panel_w) // 2
+        panel_y = (game.config.screen_height - panel_h) // 2
+
+        panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        pygame.draw.rect(panel, (15, 20, 35, 245), (0, 0, panel_w, panel_h), border_radius=16)
+        pygame.draw.rect(panel, (0, 191, 255), (0, 0, panel_w, panel_h), width=4, border_radius=16)
+        pygame.draw.rect(panel, (255, 20, 147), (5, 5, panel_w - 10, panel_h - 10), width=2, border_radius=12)
+
+        title_font = pygame.font.SysFont('Arial', 40, bold=True)
+        option_font = pygame.font.SysFont('Arial', 22, bold=True)
+        val_font = pygame.font.SysFont('Arial', 20, bold=True)
+        footer_font = pygame.font.SysFont('Arial', 14, bold=True)
+
+        title = title_font.render('SETTINGS & AUDIO', True, (0, 255, 255))
+        panel.blit(title, ((panel_w - title.get_width()) // 2, 25))
+
+        items = [
+            ('master', 'MASTER VOL', game.audio.master_volume),
+            ('bgm', 'MUSIC VOL', game.audio.bgm_volume),
+            ('sfx', 'SFX VOL', game.audio.sfx_volume),
+            ('audio_toggle', 'ALL AUDIO', 'MUTED' if game.audio.muted_all else 'ENABLED'),
+            ('back', 'BACK TO MENU', None),
+        ]
+
+        start_y = 95
+        row_gap = 55
+        for idx, (item_id, label, value) in enumerate(items):
+            is_selected = (idx == self.selected_idx)
+            text_color = (255, 215, 0) if is_selected else (160, 185, 215)
+
+            if is_selected:
+                px = 35 + int(math.sin(elapsed * 10) * 3)
+                py = start_y + idx * row_gap + 12
+                points = [(px, py - 7), (px + 10, py), (px, py + 7)]
+                pygame.draw.polygon(panel, (255, 215, 0), points)
+
+            lbl_txt = option_font.render(label, True, text_color)
+            panel.blit(lbl_txt, (55, start_y + idx * row_gap))
+
+            if isinstance(value, float):
+                pct = int(round(value * 100))
+                filled_blocks = int(round(value * 10))
+                bar_str = '█' * filled_blocks + '░' * (10 - filled_blocks)
+                slider_txt = val_font.render(f"[{bar_str}] {pct}%", True, (0, 255, 255) if is_selected else (120, 160, 190))
+                panel.blit(slider_txt, (250, start_y + idx * row_gap + 2))
+            elif isinstance(value, str):
+                t_color = (255, 80, 80) if value == 'MUTED' else (0, 255, 128)
+                val_txt = val_font.render(f"[ {value} ]", True, t_color if is_selected else (120, 160, 190))
+                panel.blit(val_txt, (250, start_y + idx * row_gap + 2))
+
+        blink = int(elapsed * 2) % 2 == 0
+        if blink:
+            footer_text = footer_font.render('USE LEFT / RIGHT ARROWS TO ADJUST VOLUME', True, (255, 20, 147))
+        else:
+            footer_text = footer_font.render('PRESS ENTER OR ESC TO RETURN', True, (0, 255, 128))
+        panel.blit(footer_text, ((panel_w - footer_text.get_width()) // 2, 375))
+
+        surface.blit(panel, (panel_x, panel_y))
+
+
 class StartMenuState(GameState):
     """Intro start menu screen driven by keyboard navigation."""
     def __init__(self) -> None:
@@ -285,8 +433,7 @@ class StartMenuState(GameState):
     def handle_event(self, game: 'Game', event: pygame.event.Event) -> None:
         options = [
             {'id': 'start', 'label': 'START GAME'},
-            {'id': 'audio', 'label': f"AUDIO: {'MUTED' if game.audio.muted_all else 'ON'}"},
-            {'id': 'bgm', 'label': f"BGM: {'MUTED' if game.audio.muted_music else 'ON'}"},
+            {'id': 'settings', 'label': 'SETTINGS'},
             {'id': 'quit', 'label': 'QUIT'}
         ]
 
@@ -303,10 +450,8 @@ class StartMenuState(GameState):
                 if opt_id == 'start':
                     game.reset()
                     game.state = PlayingState()
-                elif opt_id == 'audio':
-                    game.audio.set_muted_all(not game.audio.muted_all)
-                elif opt_id == 'bgm':
-                    game.audio.set_muted_music(not game.audio.muted_music)
+                elif opt_id == 'settings':
+                    game.state = SettingsState(return_state=self)
                 elif opt_id == 'quit':
                     game.running = False
             # Direct shortcuts
@@ -328,8 +473,7 @@ class StartMenuState(GameState):
 
         options = [
             {'id': 'start', 'label': 'START GAME'},
-            {'id': 'audio', 'label': f"AUDIO: {'MUTED' if game.audio.muted_all else 'ON'}"},
-            {'id': 'bgm', 'label': f"BGM: {'MUTED' if game.audio.muted_music else 'ON'}"},
+            {'id': 'settings', 'label': 'SETTINGS'},
             {'id': 'quit', 'label': 'QUIT'}
         ]
 
@@ -579,8 +723,7 @@ class PauseState(GameState):
     def handle_event(self, game: 'Game', event: pygame.event.Event) -> None:
         options = [
             {'id': 'continue', 'label': 'CONTINUE'},
-            {'id': 'audio', 'label': f"AUDIO: {'MUTED' if game.audio.muted_all else 'ON'}"},
-            {'id': 'bgm', 'label': f"BGM: {'MUTED' if game.audio.muted_music else 'ON'}"},
+            {'id': 'settings', 'label': 'SETTINGS'},
             {'id': 'quit', 'label': 'QUIT GAME'}
         ]
 
@@ -596,10 +739,8 @@ class PauseState(GameState):
                 opt_id = options[self.selected_idx]['id']
                 if opt_id == 'continue':
                     self._resume(game)
-                elif opt_id == 'audio':
-                    game.audio.set_muted_all(not game.audio.muted_all)
-                elif opt_id == 'bgm':
-                    game.audio.set_muted_music(not game.audio.muted_music)
+                elif opt_id == 'settings':
+                    game.state = SettingsState(return_state=self)
                 elif opt_id == 'quit':
                     game.running = False
             elif event.key in (pygame.K_c, pygame.K_ESCAPE):
@@ -643,8 +784,7 @@ class PauseState(GameState):
 
         options = [
             {'id': 'continue', 'label': 'CONTINUE'},
-            {'id': 'audio', 'label': f"AUDIO: {'MUTED' if game.audio.muted_all else 'ON'}"},
-            {'id': 'bgm', 'label': f"BGM: {'MUTED' if game.audio.muted_music else 'ON'}"},
+            {'id': 'settings', 'label': 'SETTINGS'},
             {'id': 'quit', 'label': 'QUIT GAME'}
         ]
 

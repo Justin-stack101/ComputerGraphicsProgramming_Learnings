@@ -49,6 +49,7 @@ python main_game.py
 | Action | Control / Key |
 | :--- | :--- |
 | **Menu Navigation** | `Up` / `Down` or `W` / `S` |
+| **Volume Adjustment (Settings)** | `Left` / `Right` or `A` / `D` |
 | **Select / Confirm** | `Enter` or `Space` |
 | **Move Player** | Arrow Keys or `W`, `A`, `S`, `D` |
 | **Pause Game** | `ESC` |

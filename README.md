@@ -13,6 +13,7 @@ This project is a small Pygame demo for a Computer Graphics Programming assignme
 
 ### Arcade-Style Vertical List Menus
 - **Up / Down or W / S**: Navigate options vertically with pulsing pointer selection
+- **Left / Right or A / D**: Adjust volume sliders (0% to 100%) in the **Settings & Audio** menu
 - **ENTER / SPACE**: Confirm active selection
 - **Shortcut Keys**:
   - `M`: Toggle Master Mute (all audio)
@@ -32,7 +33,8 @@ Toggle Developer Mode during play by pressing **F12**. An status HUD overlay wil
 
 ## Features
 
-- **Finite State Machine (FSM) Architecture**: Modular state handling via `StartMenuState`, `PlayingState`, `PauseState`, and `GameOverState`.
+- **Finite State Machine (FSM) Architecture**: Modular state handling via `StartMenuState`, `PlayingState`, `PauseState`, `SettingsState`, and `GameOverState`.
+- **Interactive Settings & Volume Controls**: Dedicated `SettingsState` submenu with real-time reactive volume sliders (`Master`, `Music`, `SFX`) and audio preview cues.
 - **Frame-Rate Independent Physics (`dt`)**: Movement, timers, and particle physics scale dynamically with delta-time (`dt`) for identical gameplay speed regardless of FPS.
 - **Arcade-Style Vertical List Menus**: Clean vertical menu layout featuring neon blue/pink borders, animated selection pointers, and pulsing text prompts.
 - **Granular Audio System**: Procedurally synthesized background music, movement loops, hit sweeps, and feedback sound cues.
