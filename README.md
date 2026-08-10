@@ -11,11 +11,15 @@ This project is a small Pygame demo for a Computer Graphics Programming assignme
 - Restart after game over/time up: R
 - Quit after game over/time up: Q
 
-### Start Menu / Intro Screen
-- SPACE / ENTER: Start game
-- M: Mute all sounds
-- B: Mute background music (BGM) only
-- Q: Quit game
+### Arcade-Style Vertical List Menus
+- **Up / Down or W / S**: Navigate options vertically with pulsing pointer selection
+- **ENTER / SPACE**: Confirm active selection
+- **Shortcut Keys**:
+  - `M`: Toggle Master Mute (all audio)
+  - `B`: Toggle BGM Mute (background music only)
+  - `C`: Continue / Resume (during Pause)
+  - `R`: Play Again (at Game Over)
+  - `Q`: Quit Game
 
 ### Developer Testing Controls
 Toggle Developer Mode during play by pressing **F12**. An status HUD overlay will appear with the following active key commands:
@@ -28,19 +32,16 @@ Toggle Developer Mode during play by pressing **F12**. An status HUD overlay wil
 
 ## Features
 
-- **Animated Start Menu & Intro Screen** with dynamic floating particles.
-- **Granular Audio System** featuring procedural synthesised background music, movement loops, and feedback sound effect cues.
-- **HUD Indicator Panel** reflecting master audio status and BGM controls.
-- **Global Error boundary & Logging** protecting the program from abrupt closures, with styled callstack details printed on a Pygame error screen and saved locally to `crash_log.txt`.
-- Player movement with keyboard input.
-- Moving enemy obstacles.
-- Collectible star that increases score.
-- 30-second countdown timer.
-- Lives system with respawn and invincibility.
-- **Fire Debris Particle Explosion Engine**: Renders 35 dynamic, color-blending, physics-simulated fire particles at the collision point when the player hits a red block.
-- **Synchronized Thunder & Lightning storm effects**: Screen flashes bright blue/white accompanied by a custom procedurally synthesized cracking thunder strike on *every* collision.
-- **Losing sound sweep**: Plays a custom synthesized descending pitch frequency sweep representing disappointment upon Game Over.
-- End screen that lets the player restart or quit.
+- **Finite State Machine (FSM) Architecture**: Modular state handling via `StartMenuState`, `PlayingState`, `PauseState`, and `GameOverState`.
+- **Frame-Rate Independent Physics (`dt`)**: Movement, timers, and particle physics scale dynamically with delta-time (`dt`) for identical gameplay speed regardless of FPS.
+- **Arcade-Style Vertical List Menus**: Clean vertical menu layout featuring neon blue/pink borders, animated selection pointers, and pulsing text prompts.
+- **Granular Audio System**: Procedurally synthesized background music, movement loops, hit sweeps, and feedback sound cues.
+- **HUD Indicator Panel**: Reflects master audio status and BGM controls.
+- **Global Error Boundary & Logging**: Protects the program from abrupt crashes, printing styled trace details on an error screen and logging to `crash_log.txt`.
+- **Fire Debris Particle Explosion Engine**: Renders 35 dynamic, color-blending, physics-simulated fire particles at collision points.
+- **Synchronized Thunder & Lightning Storm Effects**: Screen flashes bright blue/white accompanied by a custom procedurally synthesized cracking thunder strike on collisions.
+- **Losing Sound Sweep**: Plays a custom synthesized descending pitch frequency sweep representing disappointment upon Game Over.
+- **Lives & Invincibility**: Respawn invincibility timer with visual flashing indicator.
 
 ## Project structure
 
