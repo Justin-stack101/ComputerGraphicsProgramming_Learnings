@@ -48,9 +48,9 @@ This document tracks your environment configuration, Python engine verification,
 
 ## 📦 Phase 4: Secondary External Software (Optional / Future)
 
-- [ ] **Git for Windows Global Config**:
-  - Verify global Git author details for GitHub profile activity calendar.
-- [ ] **Unity Hub & Unity Engine**:
-  - Optional install for 2D/3D component-based engine experimentation.
+- [x] **Unity Hub & Unity Engine Guide**:
+  - Prepared [`UNITY_SETUP_AND_LEARNING_GUIDE.md`](file:///c:/Users/justi/Downloads/School%20Files/MainProjectCollection/Computer%20Graphics%20Programming/UNITY_SETUP_AND_LEARNING_GUIDE.md) detailing download steps, free Personal License activation, Editor install, and C# vs Pygame concepts.
+- [ ] **Unity Hub & Unity Editor Installation**:
+  - In progress / ready for manual download at [unity.com/download](https://unity.com/download).
 - [ ] **Blender 3D**:
   - Optional install for 3D mesh modeling and texture mapping for IT2202.
