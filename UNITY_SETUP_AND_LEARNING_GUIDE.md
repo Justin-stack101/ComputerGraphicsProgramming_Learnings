@@ -102,3 +102,54 @@ public class PlayerController : MonoBehaviour
 ```
 
 Notice how `Time.deltaTime` in C# is identical to our `dt` variable in [`main_game.py`](file:///c:/Users/justi/Downloads/School%20Files/MainProjectCollection/Computer%20Graphics%20Programming/main_game.py#L976)!
+
+---
+
+## 💻 Hardware Optimization Guide — Dell Latitude 7480
+
+Your hardware specifications:
+- **Processor**: Intel Core i7 7th Gen (Dual-core / 4-thread)
+- **RAM**: **16 GB RAM** (Excellent memory capacity for Unity Editor + IDE + Browser)
+- **Storage**: **500+ GB SSD** (Ultra-fast load times for projects and assets)
+- **Graphics**: Integrated Intel HD Graphics 620
+
+### Recommended Project Types & Expected Performance
+
+#### 1. 🌟 2D Arcade Games & Microgames (100% Smooth / 60+ FPS)
+- **Examples**: Flappy Bird, Space Invaders, Pac-Man, Asteroids, or porting **Star Catcher** to Unity 2D!
+- **Skills & Experience Gained**:
+  - `Rigidbody2D` and `BoxCollider2D` physics setup.
+  - C# player velocity & delta-time physics (`Time.deltaTime`).
+  - Unity UI Canvas (Score tracking, Health bars, Start/Pause menus).
+  - AudioSource sound effect & music triggers.
+
+#### 2. 🏃 2D Platformers & Endless Runners (60 FPS)
+- **Examples**: Mario-style 2D platformer, Celeste-style mechanics, or Dino Runner.
+- **Skills & Experience Gained**:
+  - Unity **Tilemaps** (painting 2D ground and obstacle levels visually).
+  - Jumping physics, ground detection, and gravity tuning.
+  - Sprite animation state machines (Idle ➔ Run ➔ Jump animations).
+  - Smooth camera tracking using Unity **Cinemachine**.
+
+#### 3. 🗡️ 2D Top-Down Action & RPG Games (60 FPS)
+- **Examples**: Stardew Valley style, Zelda 2D, or Vampire Survivors wave survival games.
+- **Skills & Experience Gained**:
+  - 8-directional movement scripts.
+  - Projectile shooting & bullet collision physics.
+  - Enemy AI pathfinding (`NavMeshAgent2D`).
+  - Saving high scores and player inventories (`PlayerPrefs` / JSON).
+
+#### 4. 🧊 Low-Poly / Stylized 3D Games (30 – 60 FPS)
+- **Examples**: Super Mario 64 style 3D platformer, 3D Marble Roller, Low-Poly Maze Escape, or Minecraft-style blocks.
+- **Skills & Experience Gained**:
+  - 3D Character Controller movement & 3D Camera Follow scripts.
+  - 3D Mesh Colliders and basic 3D Lighting/Materials.
+  - Trigger zones for door openings and level switches.
+
+---
+
+### ⚠️ Best Settings for Your Laptop in Unity
+When creating new projects in Unity Hub:
+- Select **2D Core** for 2D projects.
+- For 3D projects, select **Universal Render Pipeline (URP)** or **3D Core** *(Avoid HDRP / High-Definition Render Pipeline, as HDRP is meant for high-end dedicated gaming GPUs)*.
+

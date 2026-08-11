@@ -50,7 +50,9 @@ This document tracks your environment configuration, Python engine verification,
 
 - [x] **Unity Hub & Unity Engine Guide**:
   - Prepared [`UNITY_SETUP_AND_LEARNING_GUIDE.md`](file:///c:/Users/justi/Downloads/School%20Files/MainProjectCollection/Computer%20Graphics%20Programming/UNITY_SETUP_AND_LEARNING_GUIDE.md) detailing download steps, free Personal License activation, Editor install, and C# vs Pygame concepts.
+- [x] **Dell Latitude 7480 Hardware Optimization Guide**:
+  - Documented specs (i7 7th Gen, 16GB RAM, 500GB SSD, HD 620 Graphics), recommended project types (2D Arcade, 2D Platformers, 2D Top-Down RPG, Low-Poly 3D), and render pipeline rules (2D Core / URP).
 - [ ] **Unity Hub & Unity Editor Installation**:
-  - In progress / ready for manual download at [unity.com/download](https://unity.com/download).
+  - In progress / downloading from [unity.com/download](https://unity.com/download).
 - [ ] **Blender 3D**:
   - Optional install for 3D mesh modeling and texture mapping for IT2202.
