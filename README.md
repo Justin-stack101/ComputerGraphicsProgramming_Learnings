@@ -49,6 +49,7 @@ Toggle Developer Mode during play by pressing **F12**. An status HUD overlay wil
 
 - `main_game.py` — the complete game implementation
 - `README.md` — project documentation
+- `SYSTEM_ARCHITECTURE.md` — visual state machine flowcharts, rendering pipeline & web architecture diagrams
 - `MASTER_LEARNING_CHECKLIST.md` — master download & core concepts learning checklist
 - `UNITY_SETUP_AND_LEARNING_GUIDE.md` — step-by-step Unity Hub, Unity Editor installation & C# concepts guide
 - `SETUP_PROGRESS_TRACKER.md` — Antigravity IDE & Python environment setup progress checklist
