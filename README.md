@@ -49,6 +49,7 @@ Toggle Developer Mode during play by pressing **F12**. An status HUD overlay wil
 
 - `main_game.py` — the complete game implementation
 - `README.md` — project documentation
+- `ENVIRONMENT_SETUP_GUIDE.md` — required software installation & hands-on practical exercises guide
 - `CURRICULUM_MAPPING.md` — STI IT2012 & IT2202 course outcomes & weekly syllabus alignment guide
 - `GAME_DESIGN_DOCUMENT.md` — formal Game Design Document (GDD) covering story 3-act structure & mechanics
 - `RUNNING_INSTRUCTIONS.md` — step-by-step setup and execution guide
