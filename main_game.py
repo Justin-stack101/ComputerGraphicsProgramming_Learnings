@@ -28,6 +28,18 @@ class Enemy:
 
 
 @dataclass
+class PowerUp:
+    """Represents a collectable power-up item in the game world."""
+
+    rect: pygame.Rect
+    type: str  # 'shield', 'speed', 'magnet', 'freeze'
+    spawn_time: int
+    duration_ms: int = 7000
+
+
+
+
+@dataclass
 class GameConfig:
     """Configuration values used throughout the game."""
     screen_width: int = 800
@@ -78,6 +90,7 @@ class AudioManager:
             self.restart_sound = self._make_sound(660, 120, 0.5)
             # small navigation/click sound for end-screen choices
             self.menu_nav = self._make_sound(1200, 70, 0.6)
+            self.powerup_sound = self._make_sound_sweep(400, 1200, 220, 0.6)
             
             # Procedural Thunder sound (low rumble with white noise crackle)
             self.thunder_sound = self._make_thunder_sound()
@@ -120,7 +133,7 @@ class AudioManager:
             if hasattr(self, 'movement_channel') and self.movement_channel:
                 self.movement_channel.set_volume(eff_sfx * self._movement_vol)
 
-            sound_list = ['collect_sound', 'hit_sound', 'game_over_sound', 'death_sound', 'restart_sound', 'menu_nav', 'thunder_sound']
+            sound_list = ['collect_sound', 'hit_sound', 'game_over_sound', 'death_sound', 'restart_sound', 'menu_nav', 'thunder_sound', 'powerup_sound']
             for snd_name in sound_list:
                 if hasattr(self, snd_name):
                     snd = getattr(self, snd_name)
@@ -258,6 +271,10 @@ class AudioManager:
     def play_collect(self) -> None:
         if self.music_enabled and not self.muted_all and not self.muted_sfx:
             self.collect_sound.play()
+
+    def play_powerup(self) -> None:
+        if self.music_enabled and hasattr(self, 'powerup_sound') and not self.muted_all and not self.muted_sfx:
+            self.powerup_sound.play()
 
     def play_hit(self) -> None:
         if self.music_enabled and not self.muted_all and not self.muted_sfx:
@@ -555,6 +572,18 @@ class PlayingState(GameState):
                 elif event.key == pygame.K_t:
                     game.timer_bonus += 10.0
                     game.audio.play_collect()
+                elif event.key == pygame.K_1:
+                    game._spawn_powerup('shield')
+                    game.audio.play_powerup()
+                elif event.key == pygame.K_2:
+                    game._spawn_powerup('speed')
+                    game.audio.play_powerup()
+                elif event.key == pygame.K_3:
+                    game._spawn_powerup('magnet')
+                    game.audio.play_powerup()
+                elif event.key == pygame.K_4:
+                    game._spawn_powerup('freeze')
+                    game.audio.play_powerup()
                 elif event.key in (pygame.K_EQUALS, pygame.K_PLUS):
                     x = randint(200, game.config.screen_width - 100)
                     y = randint(50, game.config.screen_height - 100)
@@ -579,10 +608,50 @@ class PlayingState(GameState):
         if game.invincible and now > game.invincible_end:
             game.invincible = False
 
-        # Move player using dt
+        # Spawning powerups
+        if now > game.next_powerup_spawn and len(game.powerups) < 2:
+            game._spawn_powerup()
+            game.next_powerup_spawn = now + randint(8000, 14000)
+
+        # Despawn old powerups
+        game.powerups = [p for p in game.powerups if now - p.spawn_time < p.duration_ms]
+
+        # Powerup collision
+        uncollected_powerups = []
+        for p in game.powerups:
+            if game.player.colliderect(p.rect):
+                game.audio.play_powerup()
+                if p.type == 'shield':
+                    game.shield_active = True
+                    game._trigger_explosion(p.rect.centerx, p.rect.centery, (0, 191, 255))
+                elif p.type == 'speed':
+                    game.speed_boost_end = now + 6000
+                    game._trigger_explosion(p.rect.centerx, p.rect.centery, (255, 215, 0))
+                elif p.type == 'magnet':
+                    game.magnet_end = now + 6000
+                    game._trigger_explosion(p.rect.centerx, p.rect.centery, (255, 0, 255))
+                elif p.type == 'freeze':
+                    game.freeze_end = now + 5000
+                    game._trigger_explosion(p.rect.centerx, p.rect.centery, (0, 255, 255))
+            else:
+                uncollected_powerups.append(p)
+        game.powerups = uncollected_powerups
+
+        # Star magnet mechanics
+        if now < game.magnet_end:
+            dx = game.player.centerx - game.star.centerx
+            dy = game.player.centery - game.star.centery
+            dist = math.hypot(dx, dy)
+            if 0 < dist < 220:
+                pull_speed = 180 * dt
+                game.star.x += int((dx / dist) * pull_speed)
+                game.star.y += int((dy / dist) * pull_speed)
+
+        # Move player using dt (with speed boost multiplier)
         keys = pygame.key.get_pressed()
         is_moving = False
-        speed_pps = game.config.player_speed * 60
+        speed_mult = 1.6 if now < game.speed_boost_end else 1.0
+        speed_pps = game.config.player_speed * 60 * speed_mult
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             game.player.x -= speed_pps * dt
             is_moving = True
@@ -599,12 +668,13 @@ class PlayingState(GameState):
         game.player.clamp_ip(pygame.Rect(0, 0, game.config.screen_width, game.config.screen_height))
         game.audio.update_movement_audio(is_moving)
 
-        # Move enemies using dt
+        # Move enemies using dt (with time freeze slow down)
+        freeze_mult = 0.5 if now < game.freeze_end else 1.0
         for enemy in game.enemies:
-            enemy.rect.x += enemy.speed * 60 * enemy.direction * dt
+            enemy.rect.x += enemy.speed * 60 * freeze_mult * enemy.direction * dt
             if enemy.rect.left < 0 or enemy.rect.right > game.config.screen_width:
                 enemy.direction *= -1
-                enemy.rect.x += enemy.speed * 60 * enemy.direction * dt * 2
+                enemy.rect.x += enemy.speed * 60 * freeze_mult * enemy.direction * dt * 2
 
         # Collect star
         if game.player.colliderect(game.star):
@@ -636,21 +706,30 @@ class PlayingState(GameState):
             if collided_enemy:
                 mid_x = (game.player.centerx + collided_enemy.rect.centerx) // 2
                 mid_y = (game.player.centery + collided_enemy.rect.centery) // 2
-                game._trigger_explosion(mid_x, mid_y)
-                game.audio.stop_movement_audio()
-                game.lives -= 1
                 
-                game.audio.play_thunder()
-                game._flash_screen((240, 245, 255), duration_ms=250)
-                game.audio.play_hit()
-
-                if game.lives > 0:
-                    game.state = PauseState(self, is_collision_pause=True)
+                if game.shield_active:
+                    # Shield absorbs the hit!
+                    game.shield_active = False
+                    game.invincible = True
+                    game.invincible_end = now + 1500
+                    game.audio.play_hit()
+                    game._trigger_explosion(mid_x, mid_y, color_override=(0, 191, 255))
                 else:
-                    game.audio.play_death()
-                    game.audio.play_game_over()
-                    game._flash_screen()
-                    game.state = GameOverState('Game Over! No lives left.')
+                    game._trigger_explosion(mid_x, mid_y)
+                    game.audio.stop_movement_audio()
+                    game.lives -= 1
+                    
+                    game.audio.play_thunder()
+                    game._flash_screen((240, 245, 255), duration_ms=250)
+                    game.audio.play_hit()
+
+                    if game.lives > 0:
+                        game.state = PauseState(self, is_collision_pause=True)
+                    else:
+                        game.audio.play_death()
+                        game.audio.play_game_over()
+                        game._flash_screen()
+                        game.state = GameOverState('Game Over! No lives left.')
                     
         # Countdowns
         game.time_elapsed += dt
@@ -664,13 +743,42 @@ class PlayingState(GameState):
         now = pygame.time.get_ticks()
         surface.fill((30, 40, 60))
 
+        # Render player (with invincible flashing or shield aura)
         if (not game.invincible) or ((now // game.config.flash_interval_ms) % 2 == 0):
             pygame.draw.rect(surface, (80, 180, 240), game.player)
+            if game.shield_active:
+                aura_rect = game.player.inflate(14, 14)
+                pygame.draw.rect(surface, (0, 220, 255), aura_rect, width=3, border_radius=8)
 
         pygame.draw.rect(surface, (255, 255, 0), game.star)
 
+        # Render enemies (with freeze effect color)
+        is_frozen = now < game.freeze_end
+        enemy_color = (80, 180, 255) if is_frozen else (220, 50, 50)
         for enemy in game.enemies:
-            pygame.draw.rect(surface, (220, 50, 50), enemy.rect)
+            pygame.draw.rect(surface, enemy_color, enemy.rect)
+
+        # Render power-up drops
+        p_font = pygame.font.SysFont('Arial', 16, bold=True)
+        for p in game.powerups:
+            # Pulsing size effect
+            pulse = math.sin((now - p.spawn_time) * 0.008) * 3
+            draw_rect = p.rect.inflate(int(pulse), int(pulse))
+            
+            if p.type == 'shield':
+                bg_color = (0, 191, 255)
+            elif p.type == 'speed':
+                bg_color = (255, 215, 0)
+            elif p.type == 'magnet':
+                bg_color = (255, 0, 255)
+            else:
+                bg_color = (0, 255, 255)
+
+            pygame.draw.rect(surface, bg_color, draw_rect, border_radius=6)
+            pygame.draw.rect(surface, (255, 255, 255), draw_rect, width=2, border_radius=6)
+            
+            lbl_txt = p_font.render(p.type[0].upper(), True, (0, 0, 0))
+            surface.blit(lbl_txt, ((draw_rect.centerx - lbl_txt.get_width() // 2), (draw_rect.centery - lbl_txt.get_height() // 2)))
 
         for p in game.particles:
             current_size = max(1, int(p['size'] * (p['life'] / p['max_life'])))
@@ -682,6 +790,30 @@ class PlayingState(GameState):
         lives_text = game.font.render(f'Lives: {game.lives}', True, (255, 255, 255))
         surface.blit(lives_text, (20, 60))
         
+        # Active Power-up Badges HUD
+        badge_x = 20
+        badge_y = 100
+        hud_font = pygame.font.SysFont('Arial', 14, bold=True)
+        if game.shield_active:
+            s_badge = hud_font.render('SHIELD READY [S]', True, (0, 220, 255))
+            surface.blit(s_badge, (badge_x, badge_y))
+            badge_y += 20
+        if now < game.speed_boost_end:
+            sec_left = int(math.ceil((game.speed_boost_end - now) / 1000.0))
+            v_badge = hud_font.render(f'SPEED {sec_left}s', True, (255, 215, 0))
+            surface.blit(v_badge, (badge_x, badge_y))
+            badge_y += 20
+        if now < game.magnet_end:
+            sec_left = int(math.ceil((game.magnet_end - now) / 1000.0))
+            m_badge = hud_font.render(f'MAGNET {sec_left}s', True, (255, 0, 255))
+            surface.blit(m_badge, (badge_x, badge_y))
+            badge_y += 20
+        if now < game.freeze_end:
+            sec_left = int(math.ceil((game.freeze_end - now) / 1000.0))
+            f_badge = hud_font.render(f'FREEZE {sec_left}s', True, (0, 255, 255))
+            surface.blit(f_badge, (badge_x, badge_y))
+            badge_y += 20
+
         time_left = int(max(0, game.config.timer_seconds + game.timer_bonus - game.time_elapsed))
         timer_text = game.font.render(f'Time left: {time_left}', True, (255, 255, 255))
         surface.blit(timer_text, (game.config.screen_width - 240, 20))
@@ -690,10 +822,10 @@ class PlayingState(GameState):
         if game.audio:
             if game.audio.muted_all:
                 txt = small_font.render('AUDIO: MUTED (M)', True, (240, 100, 100))
-                surface.blit(txt, (20, 100))
+                surface.blit(txt, (20, badge_y))
             elif game.audio.muted_music:
                 txt = small_font.render('BGM: MUTED (B)', True, (240, 180, 100))
-                surface.blit(txt, (20, 100))
+                surface.blit(txt, (20, badge_y))
 
         if game.dev_mode:
             dev_title = small_font.render('--- DEVELOPER MODE ACTIVE ---', True, (0, 255, 128))
@@ -701,12 +833,14 @@ class PlayingState(GameState):
             god_status = 'ON (Press G)' if game.god_mode else 'OFF (Press G)'
             god_txt = small_font.render(f'God Mode: {god_status}', True, (0, 255, 128) if game.god_mode else (180, 180, 180))
             surface.blit(god_txt, (game.config.screen_width - 240, 80))
+            pw_txt = small_font.render('Spawn Powerups: 1=Shield 2=Speed 3=Magnet 4=Freeze', True, (0, 255, 128))
+            surface.blit(pw_txt, (game.config.screen_width - 240, 100))
             enemies_txt = small_font.render(f'Enemies: {len(game.enemies)} (Press +/- to tune)', True, (180, 180, 180))
-            surface.blit(enemies_txt, (game.config.screen_width - 240, 100))
+            surface.blit(enemies_txt, (game.config.screen_width - 240, 120))
             speed_txt = small_font.render(f'Player Speed: {game.config.player_speed} (Press [ / ])', True, (180, 180, 180))
-            surface.blit(speed_txt, (game.config.screen_width - 240, 120))
+            surface.blit(speed_txt, (game.config.screen_width - 240, 140))
             time_txt = small_font.render('Press T to Add 10 Seconds', True, (180, 180, 180))
-            surface.blit(time_txt, (game.config.screen_width - 240, 140))
+            surface.blit(time_txt, (game.config.screen_width - 240, 160))
         else:
             dev_txt = small_font.render('Press F12 for Developer Tools', True, (120, 130, 150))
             surface.blit(dev_txt, (game.config.screen_width - 240, 60))
@@ -997,10 +1131,29 @@ class Game:
         )
         self.enemies = self._create_enemies()
         self.particles = []
+        self.powerups: list[PowerUp] = []
+        self.next_powerup_spawn = pygame.time.get_ticks() + randint(4000, 8000)
+        self.shield_active = False
+        self.speed_boost_end = 0
+        self.magnet_end = 0
+        self.freeze_end = 0
         self.invincible = False
         self.invincible_end = 0
         self.time_elapsed = 0.0
         self.timer_bonus = 0.0
+
+    def _spawn_powerup(self, p_type: str = None) -> None:
+        """Spawn a collectable power-up item at a random safe position."""
+        import random
+        if not p_type:
+            p_type = random.choice(['shield', 'speed', 'magnet', 'freeze'])
+        x = randint(60, self.config.screen_width - 90)
+        y = randint(60, self.config.screen_height - 90)
+        self.powerups.append(PowerUp(
+            rect=pygame.Rect(x, y, 30, 30),
+            type=p_type,
+            spawn_time=pygame.time.get_ticks()
+        ))
 
     def _create_enemies(self) -> list[Enemy]:
         """Create the enemy blocks for a new round."""
@@ -1025,7 +1178,7 @@ class Game:
         except Exception:
             pass
 
-    def _trigger_explosion(self, x: int, y: int) -> None:
+    def _trigger_explosion(self, x: int, y: int, color_override: tuple[int, int, int] = None) -> None:
         """Create a cluster of particle effects to simulate an explosion."""
         import random
         for _ in range(35):
@@ -1033,12 +1186,15 @@ class Game:
             speed = random.uniform(3, 8)
             dx = math.cos(angle) * speed
             dy = math.sin(angle) * speed
-            color = random.choice([
-                (255, 69, 0),    # OrangeRed
-                (255, 140, 0),   # DarkOrange
-                (255, 215, 0),   # Gold
-                (220, 20, 60)    # Crimson
-            ])
+            if color_override:
+                color = color_override
+            else:
+                color = random.choice([
+                    (255, 69, 0),    # OrangeRed
+                    (255, 140, 0),   # DarkOrange
+                    (255, 215, 0),   # Gold
+                    (220, 20, 60)    # Crimson
+                ])
             size = random.randint(3, 8)
             life = random.randint(20, 45)
             self.particles.append({

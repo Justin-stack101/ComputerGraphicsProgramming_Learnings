@@ -41,5 +41,5 @@ This roadmap outlines planned future expansions, web system integrations, and ga
 ## 🎨 4. Graphics, Sound & Power-Ups
 
 - [ ] **Pixel Art Sprites & Animations**: Replace color rectangles with custom animated sprites for Player, Enemies, and Stars.
-- [ ] **Power-Up Items**: Add temporary drops (Shield 🛡️, Speed Boost ⚡, Star Magnet 🧲, Time Freeze ❄️).
+- [x] **Power-Up Items**: Add temporary drops (Shield 🛡️, Speed Boost ⚡, Star Magnet 🧲, Time Freeze ❄️).
 - [ ] **Dynamic Soundtracks**: Selectable procedural background music tracks and combo pitch shifts.
